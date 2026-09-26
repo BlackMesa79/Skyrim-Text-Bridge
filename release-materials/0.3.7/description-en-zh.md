@@ -1,4 +1,4 @@
-# Skyrim Text Bridge
+# Skyrim Text Bridge - Chinese IME Support
 
 ## Overview / 简介
 
