@@ -3,6 +3,7 @@
 #include "BridgeCore.h"
 #include "ImePanel.h"
 #include "Settings.h"
+#include "InputMethodName.h"
 #include <imm.h>
 #include <commctrl.h>
 #include <atomic>
@@ -24,13 +25,26 @@ std::atomic<ULONGLONG> requestTime{0};
 std::mutex mutex; std::deque<std::uint32_t> text;
 char16_t highSurrogate{};
 bool detaching = false;
+std::wstring inputMethodName;
+ULONGLONG nameCheckedAt{};
 #ifdef TEXTBRIDGE_IME_TEST
+std::wstring testInputMethodName = L"测试输入法";
+std::wstring ReadInputMethodName() { return testInputMethodName; }
 bool testForeground = true;
 bool Foreground() { return testForeground; }
 #else
+std::wstring ReadInputMethodName() { return InputMethodName::Read(); }
 bool Foreground() { return GetForegroundWindow() == hwnd; }
 #endif
 bool Allowed() { return enabled && Settings::Get().enabled && Foreground() && !Prisma::OwnsInput(); }
+bool RefreshInputMethodName(bool force = false) {
+    const auto now = GetTickCount64();
+    if (!force && !inputMethodName.empty() && now - nameCheckedAt < 1000) return false;
+    nameCheckedAt = now;
+    auto name = ReadInputMethodName();
+    if (name == inputMethodName) return false;
+    inputMethodName = std::move(name); return true;
+}
 void Clear() { std::lock_guard lock(mutex); text.clear(); }
 void Enqueue(std::u16string_view value) {
     auto decoded = DecodeUtf16(value); std::lock_guard lock(mutex);
@@ -74,6 +88,7 @@ void UpdatePanel() {
     composing = !composition.empty();
     std::wstring display = (english ? std::wstring(L"英文输入 · ") : std::wstring(L"中文输入 · ")) + Settings::KeyName(Settings::Get().hotkey) + L" 关闭";
     display += L"\n" + (composition.empty() ? std::wstring(L"请在当前输入框打字") : composition);
+    display += L"\n当前输入法：" + inputMethodName;
     auto candidates = CandidateText();
     if (composition.empty()) display += L"\nCtrl + Space 切换中英文";
     if (!composition.empty() && candidates.empty()) display += L"\n输入法未提供候选列表";
@@ -86,6 +101,7 @@ void Detach(bool tip = false) {
     posted = false;
     enabled = false; composing = false; highSurrogate = 0; Clear();
     english = false; appliedEnglish = false;
+    inputMethodName.clear(); nameCheckedAt = 0;
     const bool owned = attached.exchange(false);
     if (owned) {
         auto current = ImmGetContext(hwnd); if (current) ImmReleaseContext(hwnd, current);
@@ -103,6 +119,7 @@ void Detach(bool tip = false) {
 }
 void Sync() {
     if (!Allowed()) { Detach(offTip.exchange(false)); return; }
+    const bool nameChanged = RefreshInputMethodName();
     if (!attached) {
         context = ImmCreateContext();
         if (!context) { Detach(); ImePanel::Show(hwnd, L"输入法启动失败", true); return; }
@@ -119,6 +136,7 @@ void Sync() {
         ImmSetOpenStatus(context, !appliedEnglish);
         UpdatePanel();
     }
+    else if (nameChanged && attached) UpdatePanel();
 }
 LRESULT CALLBACK Subclass(HWND window, UINT message, WPARAM w, LPARAM l, UINT_PTR, DWORD_PTR) {
     // IMM cancellation may synchronously re-enter this callback during teardown.
@@ -129,6 +147,11 @@ LRESULT CALLBACK Subclass(HWND window, UINT message, WPARAM w, LPARAM l, UINT_PT
         Detach(); return DefSubclassProc(window, message, w, l);
     }
     if (attached) {
+        if (message == WM_INPUTLANGCHANGE) {
+            const auto result = DefSubclassProc(window, message, w, l);
+            if (attached && Allowed()) { RefreshInputMethodName(true); UpdatePanel(); }
+            return result;
+        }
         if (english && message == WM_KEYDOWN) {
             // Translate here: Skyrim need not call TranslateMessage. Ignore its
             // WM_CHAR copy below, so each physical/repeated key is committed once.

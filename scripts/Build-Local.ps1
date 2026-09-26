@@ -34,10 +34,14 @@ $common = @('/nologo','/std:c++latest','/utf-8','/EHsc','/MD','/O2','/Zi','/FS',
 if ($LASTEXITCODE) { throw 'Core test compilation failed' }
 & "$outputDir\BridgeCoreTests.exe"
 if ($LASTEXITCODE) { throw 'Core tests failed' }
-& cl @common tests/DirectImeHarness.cpp "/Fe$outputDir\DirectImeHarness.exe" "/Fo$outputDir\DirectImeHarness.obj" /link user32.lib imm32.lib comctl32.lib /INCREMENTAL:NO
+& cl @common tests/DirectImeHarness.cpp "/Fe$outputDir\DirectImeHarness.exe" "/Fo$outputDir\DirectImeHarness.obj" /link user32.lib imm32.lib comctl32.lib ole32.lib oleaut32.lib uuid.lib /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'Direct IME harness compilation failed' }
 & "$outputDir\DirectImeHarness.exe"
 if ($LASTEXITCODE) { throw 'Direct IME lifecycle tests failed' }
+& cl @common tests/InputMethodNameTests.cpp "/Fe$outputDir\InputMethodNameTests.exe" "/Fo$outputDir\InputMethodNameTests.obj" /link user32.lib imm32.lib ole32.lib oleaut32.lib uuid.lib /INCREMENTAL:NO
+if ($LASTEXITCODE) { throw 'IME name test compilation failed' }
+& "$outputDir\InputMethodNameTests.exe"
+if ($LASTEXITCODE) { throw 'IME name tests failed' }
 & cl @common "/I$projectRoot\extern\PrismaUI" tests/PrismaBridgeTests.cpp "/Fe$outputDir\PrismaBridgeTests.exe" "/Fo$outputDir\PrismaBridgeTests.obj" /link /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'Prisma negotiation test compilation failed' }
 & "$outputDir\PrismaBridgeTests.exe"
@@ -57,7 +61,7 @@ $sources += @('spdlog.cpp','stdout_sinks.cpp','color_sinks.cpp','file_sinks.cpp'
 & cl @common @pluginFlags /c /MP @sources "/Fo$outputDir\\"
 if ($LASTEXITCODE) { throw 'Plugin compilation failed' }
 $objects = @($sources | ForEach-Object { Join-Path $outputDir ([IO.Path]::GetFileNameWithoutExtension($_) + '.obj') })
-& link /NOLOGO /DLL /DEBUG /INCREMENTAL:NO "/OUT:$outputDir\SkyrimTextBridge.dll" @objects $CommonLibArchive user32.lib gdi32.lib imm32.lib comctl32.lib ole32.lib shell32.lib advapi32.lib version.lib d3d11.lib dxgi.lib d3dcompiler.lib dbghelp.lib bcrypt.lib
+& link /NOLOGO /DLL /DEBUG /INCREMENTAL:NO "/OUT:$outputDir\SkyrimTextBridge.dll" @objects $CommonLibArchive user32.lib gdi32.lib imm32.lib comctl32.lib ole32.lib oleaut32.lib uuid.lib shell32.lib advapi32.lib version.lib d3d11.lib dxgi.lib d3dcompiler.lib dbghelp.lib bcrypt.lib
 if ($LASTEXITCODE) { throw 'Plugin link failed' }
 & cl @common tools/RuntimeMetadataCheck.cpp "/Fe$outputDir\RuntimeMetadataCheck.exe" "/Fo$outputDir\RuntimeMetadataCheck.obj" /link user32.lib /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'Metadata checker compilation failed' }

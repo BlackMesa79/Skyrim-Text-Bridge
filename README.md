@@ -2,6 +2,10 @@
 
 A Skyrim SKSE plugin for Chinese IME input, explicit English typing, and keyboard hotkey filtering. Includes an adjustable candidate panel and optional SKSE Menu Framework settings.
 
+**支持 Meridian UI（如 Tailor）、Modex、SkyUI 等界面的输入；兼容 Prisma UI。** 前者通过 F8 调用本模组输入。Prisma UI 由框架自身处理输入，本模组不为它提供输入支持，也不接管它的输入法；兼容共存，不影响其正常输入。
+
+**Input support:** Meridian UI (including Tailor), Modex, SkyUI and other compatible text fields. **Coexistence compatibility:** Prisma UI uses its own native input; Text Bridge does not provide IME input for Prisma-based interfaces.
+
 ## 使用
 
 1. 安装与游戏匹配的 SKSE64 和 Address Library；支持 Skyrim **1.5.97 / 1.6.1170**。
@@ -11,13 +15,15 @@ A Skyrim SKSE plugin for Chinese IME input, explicit English typing, and keyboar
 
 游戏使用窗口化或无边框模式。切换菜单、读档、失焦或 Prisma 接管时退出输入模式。
 
+面板显示当前 Windows 输入法名称，并在切换输入法后刷新（同语言配置切换约一秒内更新）。标题中的中/英文是 Text Bridge 的输入模式，名称行表示当前选中的 Windows 输入法。部分输入法未提供名称时会显示“名称不可用”及可获取的语言信息。
+
 ## Compatibility / 兼容性
 
 | 组件 | 接入方式 | 版本检查 |
 | --- | --- | --- |
-| SkyUI / Modex | 游戏字符通道 | 无模组版本白名单 |
-| Prisma UI / Outfit Wheeler | 保留框架原生 IME，不需要 F8 | 协商公开 V1 焦点接口，不限制框架发行版本 |
-| Meridian UI / Tailor | View/1 焦点跟踪及 DOM 文本提交 | 协商 `Meridian.View/1`，不限制框架发行版本 |
+| SkyUI / Modex | **输入支持**：F8 调用本模组，经游戏字符通道输入 | 无模组版本白名单 |
+| Prisma UI / Outfit Wheeler | **兼容共存**：使用 Prisma 原生输入，本模组不提供输入支持、不接管 | 仅查询公开 V1 焦点接口以避让，不限制框架发行版本 |
+| Meridian UI / Tailor | **输入支持**：F8 调用本模组，经 View/1 与 DOM 提交文字 | 协商 `Meridian.View/1`，不限制框架发行版本 |
 | SKSE Menu Framework | 可选设置页 | 检查所需导出接口，不限制发行版本 |
 | Skyrim | SKSE / CommonLib 地址与结构 | 严格限制 1.5.97、1.6.1170 |
 | SimpleIME | 使用同一输入目标 | 禁止同时启用 |

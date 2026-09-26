@@ -20,7 +20,7 @@ void Render(const wchar_t* text, bool transient, const char* path) {
     SelectObject(dc,old); DeleteObject(bitmap); DeleteDC(dc);
 }
 int main() { auto settings=TextBridge::Settings::Data{}; settings.opacity=.4f; TextBridge::Settings::Set(settings);
-    Render(L"输入法已开启 · F8 关闭\nshang gu juan zhou\n  1. 上古卷轴\n> 2. 上古卷轴特别版\n  3. 上古卷轴重制版\n  4. 上古卷轴：天际",false,"build/preview/candidates.bmp");
-    Render(L"输入法已开启 · F8 关闭\n请在当前输入框打字",false,"build/preview/ready.bmp");
+    Render(L"中文输入 · F8 关闭\nshang gu juan zhou\n当前输入法：微软拼音\n  1. 上古卷轴\n> 2. 上古卷轴特别版\n  3. 上古卷轴重制版\n  4. 上古卷轴：天际",false,"build/preview/candidates.bmp");
+    Render(L"英文输入 · F8 关闭\n请在当前输入框打字\n当前输入法：微软拼音\nCtrl + Space 切换中英文",false,"build/preview/ready.bmp");
     Render(L"输入法已关闭",true,"build/preview/off.bmp");
 }
