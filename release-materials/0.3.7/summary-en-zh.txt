@@ -1,0 +1,3 @@
+Chinese IME input for Skyrim, with an F8 input mode, candidate panel and English switching. Supports Meridian UI, Modex and SkyUI; coexists with Prisma UI without taking over its native input.
+
+为天际提供中文输入、F8 输入模式、候选面板与中英文切换。支持 Meridian UI、Modex 和 SkyUI；兼容 Prisma UI，不接管其原生输入。

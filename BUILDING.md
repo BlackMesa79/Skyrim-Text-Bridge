@@ -35,7 +35,7 @@ These checks do not launch Skyrim; supported runtime metadata is not a claim of 
 ./scripts/Package.ps1 -Release
 ```
 
-Produces `dist/SkyrimTextBridge-0.3.7.zip` and a separate symbols ZIP, with licenses and documentation. Source is available from the repository alongside each source commit. Do not use prototype packages for normal public distribution.
+Produces `dist/SkyrimTextBridge-0.3.7.zip` (exactly the DLL, default INI and one readme.txt containing usage and full license notices) and a separate symbols ZIP. Source is available from the repository alongside each source commit. Do not use prototype packages for normal public distribution.
 
 `Sync-Mod.ps1` is an optional local deployment helper. Supply `-Target '<your MO2 mod folder>' -Release`; it refuses to replace a running game's DLL and backs up overwritten files. Its default target is the developer's local installation, not a required path.
 

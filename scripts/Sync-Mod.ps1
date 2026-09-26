@@ -8,7 +8,7 @@ if (Get-Process SkyrimSE -ErrorAction SilentlyContinue) { throw 'Exit Skyrim bef
 $project = Split-Path $PSScriptRoot -Parent
 $targetRoot = (Resolve-Path -LiteralPath $Target).Path.TrimEnd('\')
 $suffix = if ($Release) { '' } else { '-prototype' }
-$source = Join-Path $project ("build\deploy-$Version$suffix-release-sync")
+$source = Join-Path $project ("build\deploy-$Version$suffix-" + [Guid]::NewGuid().ToString('N'))
 Expand-Archive -LiteralPath (Join-Path $project "dist\SkyrimTextBridge-$Version$suffix.zip") -DestinationPath $source -Force
 $backup = Join-Path $project ('build\deployment-backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
 $files = Get-ChildItem -LiteralPath $source -Recurse -File

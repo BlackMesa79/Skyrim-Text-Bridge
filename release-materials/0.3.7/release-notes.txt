@@ -1,0 +1,9 @@
+Original SVG cover, matching the Face Lighting v2 charcoal/ivory/gold style.
+Canvas: 2560 × 1440; PNG exports: 2560 × 1440 and 1280 × 720.
+Editable typography: Segoe UI, Microsoft YaHei. No external images or game assets.
+The keyboard and input field are a promotional illustration, not an in-game screenshot.
+
+Use description-en-zh.bbcode.txt for the Nexus editor; description-en-zh.md is the readable Markdown copy.
+Each body paragraph is English first, followed by its Chinese counterpart.
+summary-en-zh.txt contains the short English and Chinese descriptions.
+The release ZIP contains only SkyrimTextBridge.dll, the default INI and readme.txt.

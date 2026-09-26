@@ -30,7 +30,7 @@ A Skyrim SKSE plugin for Chinese IME input, explicit English typing, and keyboar
 
 Meridian 的焦点观察依赖 MSVC x64 View/1 的公开虚表布局；成功协商接口并不意味着所有第三方界面均已实测。已测试的框架包括 Prisma 1.5.1、Meridian 1.5.0 和 Menu Framework 3.14 系列。
 
-用户确认 0.3.4 在当前 1.6.1170 环境运行正常。0.3.5 保留该行为，并移除 Meridian 的发行版本白名单；此调整通过离线协商和 ABI 检查。1.5.97 仍待游戏实测。
+用户已确认 0.3.7 在当前 1.6.1170 环境运行正常，并批准该版本发布。1.5.97 仍待游戏实测。
 
 ## 热键过滤范围
 
@@ -50,6 +50,8 @@ F8 输入模式中，普通键的按下、持续和松开事件不会送入下�
 ```
 
 发行包不包含 PDB，符号单独打包。SKSE 日志中的 `SkyrimTextBridge.log` 用于排查；不记录输入文字。
+
+正式安装 ZIP 仅含 DLL、默认 INI 与一个 `readme.txt`，使用说明和完整许可文本合并在该文件中。逐段英中对照详情页、简介及 SVG 封面位于 `release-materials/0.3.7/`，不占用安装包。
 
 ## License
 

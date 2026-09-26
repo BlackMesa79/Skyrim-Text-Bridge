@@ -3,30 +3,37 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $dist = Join-Path $projectRoot 'dist'
 $suffix = if ($Release) { '' } else { '-prototype' }
-$stage = Join-Path $dist "SkyrimTextBridge-$Version$suffix"
+# Always stage in a new directory, so older documentation can never leak into a ZIP.
+$stage = Join-Path $projectRoot ('build\package-' + $Version + '-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path (Join-Path $stage 'SKSE\Plugins') -Force | Out-Null
-New-Item -ItemType Directory -Path (Join-Path $stage 'Documentation\SkyrimTextBridge\Licenses') -Force | Out-Null
+New-Item -ItemType Directory -Path $dist -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $projectRoot 'build\native\SkyrimTextBridge.dll') -Destination (Join-Path $stage 'SKSE\Plugins')
-if (!$Release) { Copy-Item -LiteralPath (Join-Path $projectRoot 'build\native\SkyrimTextBridge.pdb') -Destination (Join-Path $stage 'SKSE\Plugins') }
 Copy-Item -LiteralPath (Join-Path $projectRoot 'package\SKSE\Plugins\SkyrimTextBridge.ini') -Destination (Join-Path $stage 'SKSE\Plugins')
-Copy-Item -LiteralPath (Join-Path $projectRoot 'README.md') -Destination (Join-Path $stage 'Documentation\SkyrimTextBridge\README.md')
-Copy-Item -LiteralPath (Join-Path $projectRoot "VALIDATION-$Version.md") -Destination (Join-Path $stage 'Documentation\SkyrimTextBridge\VALIDATION.md')
-Copy-Item -LiteralPath (Join-Path $projectRoot 'extern\CommonLibVR\LICENSE') -Destination (Join-Path $stage 'Documentation\SkyrimTextBridge\Licenses\CommonLibVR.txt')
-Copy-Item -LiteralPath (Join-Path $projectRoot 'extern\PrismaUI\LICENSE.md') -Destination (Join-Path $stage 'Documentation\SkyrimTextBridge\Licenses\PrismaUI.md')
-Copy-Item -LiteralPath (Join-Path $projectRoot 'extern\MeridianUI\LICENSE') -Destination (Join-Path $stage 'Documentation\SkyrimTextBridge\Licenses\MeridianUI.txt')
-Copy-Item -LiteralPath (Join-Path $projectRoot 'extern\SKSEMenuFramework\LICENSE') -Destination (Join-Path $stage 'Documentation\SkyrimTextBridge\Licenses\MenuFramework.txt')
-Copy-Item -LiteralPath (Join-Path $projectRoot 'extern\SKSEMenuFramework\SKSEMenuFramework.h') -Destination (Join-Path $stage 'Documentation\SkyrimTextBridge\Licenses\SKSEMenuFramework.h')
-$spdlog = Get-Item -LiteralPath (Join-Path $projectRoot 'extern\spdlog\LICENSE') -ErrorAction SilentlyContinue
-if (!$spdlog) { $spdlog = Get-ChildItem -Path (Join-Path $projectRoot 'tools-cache\xmake\.xmake\cache\packages\*\s\spdlog\v1.16.0\source\spdlog\LICENSE') | Select-Object -First 1 }
-if (!$spdlog) { throw 'spdlog license not found' }
-Copy-Item -LiteralPath $spdlog.FullName -Destination (Join-Path $stage 'Documentation\SkyrimTextBridge\Licenses\spdlog.txt')
-foreach ($name in @('LICENSE','THIRD-PARTY-NOTICES.md')) {
-    Copy-Item -LiteralPath (Join-Path $projectRoot $name) -Destination (Join-Path $stage "Documentation\SkyrimTextBridge\$name")
+$readme = [Text.StringBuilder]::new()
+[void]$readme.Append([IO.File]::ReadAllText((Join-Path $projectRoot "release-materials\$Version\readme-intro.txt")))
+$notices = [ordered]@{
+    'PROJECT LICENSE — GPL-3.0-only' = 'LICENSE'
+    'THIRD-PARTY NOTICES' = 'THIRD-PARTY-NOTICES.md'
+    'COMMONLIBVR / COMMONLIBSSE — MIT' = 'extern\CommonLibVR\LICENSE'
+    'SPDLOG — MIT' = 'extern\spdlog\LICENSE'
+    'PRISMA UI — ORIGINAL LICENSE' = 'extern\PrismaUI\LICENSE.md'
+    'SKSE MENU FRAMEWORK — LGPL-2.1' = 'extern\SKSEMenuFramework\LICENSE'
+    'MERIDIAN UI — ORIGINAL PROJECT LICENSE (SDK HEADERS CARRY MIT SPDX NOTICES)' = 'extern\MeridianUI\LICENSE'
 }
-$notes = Join-Path $projectRoot "RELEASE-NOTES-$Version.md"
-if (Test-Path -LiteralPath $notes) { Copy-Item -LiteralPath $notes -Destination (Join-Path $stage 'Documentation\SkyrimTextBridge\RELEASE-NOTES.md') }
+foreach ($entry in $notices.GetEnumerator()) {
+    [void]$readme.Append("`r`n`r`n================================================================`r`n$($entry.Key)`r`n================================================================`r`n`r`n")
+    [void]$readme.Append([IO.File]::ReadAllText((Join-Path $projectRoot $entry.Value)))
+}
+[IO.File]::WriteAllText((Join-Path $stage 'readme.txt'),$readme.ToString(),[Text.UTF8Encoding]::new($true))
 $zip = Join-Path $dist "SkyrimTextBridge-$Version$suffix.zip"
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [IO.Compression.ZipFile]::OpenRead($zip)
+try {
+    $actual = @($archive.Entries | Where-Object { $_.Name } | ForEach-Object { $_.FullName.Replace('\','/') } | Sort-Object)
+    $expected = @('readme.txt','SKSE/Plugins/SkyrimTextBridge.dll','SKSE/Plugins/SkyrimTextBridge.ini') | Sort-Object
+    if (Compare-Object $actual $expected) { throw 'Release ZIP must contain exactly DLL, default INI and readme.txt' }
+} finally { $archive.Dispose() }
 if ($Release) {
     Compress-Archive -LiteralPath (Join-Path $projectRoot 'build\native\SkyrimTextBridge.pdb') -DestinationPath (Join-Path $dist "SkyrimTextBridge-$Version-symbols.zip") -Force
 }
