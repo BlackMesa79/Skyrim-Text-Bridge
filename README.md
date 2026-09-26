@@ -15,7 +15,7 @@ A Skyrim SKSE plugin for Chinese IME input, explicit English typing, and keyboar
 
 游戏使用窗口化或无边框模式。切换菜单、读档、失焦或 Prisma 接管时退出输入模式。
 
-面板显示当前 Windows 输入法名称，并在切换输入法后刷新（同语言配置切换约一秒内更新）。标题中的中/英文是 Text Bridge 的输入模式，名称行表示当前选中的 Windows 输入法。部分输入法未提供名称时会显示“名称不可用”及可获取的语言信息。
+面板显示当前 Windows 输入法名称，并在切换输入法后刷新（同语言配置切换约一秒内更新）。标题中的中/英文是 Text Bridge 的输入模式。读到具体名称时显示“当前输入法：……”；只读到语言信息时显示“键盘语言：……”，不会将语言误标为输入法名称；两者都未取得时显示“当前输入法：未知”。
 
 ## Compatibility / 兼容性
 

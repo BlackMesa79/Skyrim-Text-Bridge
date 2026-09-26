@@ -12,6 +12,11 @@ inline std::wstring Clean(std::wstring value) {
     if (value.size() > 160) value.resize(160);
     return value;
 }
+inline std::wstring Label(std::wstring name, bool languageOnly = false) {
+    name = Clean(std::move(name));
+    if (name.empty()) return L"当前输入法：未知";
+    return (languageOnly ? L"键盘语言：" : L"当前输入法：") + name;
+}
 // Call on the game window's thread. Query only; never activate a TSF profile.
 inline std::wstring Read() {
     std::wstring name;
@@ -37,15 +42,15 @@ inline std::wstring Read() {
         if (SUCCEEDED(init)) CoUninitialize();
     }
     name = Clean(name);
-    if (!name.empty()) return name;
+    if (!name.empty()) return Label(name);
     const auto layout = GetKeyboardLayout(0);
     wchar_t description[256]{};
     if (ImmGetDescriptionW(layout, description, 256)) name = Clean(description);
-    if (!name.empty()) return name;
+    if (!name.empty()) return Label(name);
     // A language label is explicitly a fallback, not a guessed IME brand.
     if (GetLocaleInfoW(MAKELCID(LOWORD(reinterpret_cast<ULONG_PTR>(layout)), SORT_DEFAULT),
         LOCALE_SLOCALIZEDDISPLAYNAME, description, 256))
-        return L"键盘 / 输入法名称不可用（" + Clean(description) + L"）";
-    return L"输入法名称不可用";
+        return Label(description, true);
+    return Label({});
 }
 }

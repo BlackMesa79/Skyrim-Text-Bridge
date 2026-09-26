@@ -29,7 +29,7 @@ std::wstring inputMethodName;
 ULONGLONG nameCheckedAt{};
 #ifdef TEXTBRIDGE_IME_TEST
 std::wstring testInputMethodName = L"测试输入法";
-std::wstring ReadInputMethodName() { return testInputMethodName; }
+std::wstring ReadInputMethodName() { return InputMethodName::Label(testInputMethodName); }
 bool testForeground = true;
 bool Foreground() { return testForeground; }
 #else
@@ -88,7 +88,7 @@ void UpdatePanel() {
     composing = !composition.empty();
     std::wstring display = (english ? std::wstring(L"英文输入 · ") : std::wstring(L"中文输入 · ")) + Settings::KeyName(Settings::Get().hotkey) + L" 关闭";
     display += L"\n" + (composition.empty() ? std::wstring(L"请在当前输入框打字") : composition);
-    display += L"\n当前输入法：" + inputMethodName;
+    display += L"\n" + inputMethodName;
     auto candidates = CandidateText();
     if (composition.empty()) display += L"\nCtrl + Space 切换中英文";
     if (!composition.empty() && candidates.empty()) display += L"\n输入法未提供候选列表";
