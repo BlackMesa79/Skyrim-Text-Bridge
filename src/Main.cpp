@@ -10,6 +10,7 @@
 #include "TypingGuard.h"
 #include "AutoInputPolicy.h"
 #include "SkyUiFocus.h"
+#include "GameCharacterQueue.h"
 namespace {
 using Dispatch = void(RE::BSTEventSource<RE::InputEvent*>*, RE::InputEvent**);
 REL::Relocation<Dispatch> previousDispatch;
@@ -131,15 +132,10 @@ void InputHook(RE::BSTEventSource<RE::InputEvent*>* source, RE::InputEvent** eve
     if (Meridian::Session()) {
         Meridian::Commit(DirectIme::Take(1024));
     } else if (auto queue = RE::BSInputEventQueue::GetSingleton()) {
-        const auto used = queue->charEventCount;
-        const auto capacity = used < queue->MAX_CHAR_EVENTS ? queue->MAX_CHAR_EVENTS - used : 0;
-        auto& data = queue->GetRuntimeData();
-        const auto originalHead = data.queueHead;
-        const auto originalTail = data.queueTail;
-        data.queueHead = nullptr; data.queueTail = nullptr;
-        for (auto c : DirectIme::Take(capacity)) queue->AddCharEvent(c);
-        *tail = data.queueHead;
-        data.queueHead = originalHead; data.queueTail = originalTail;
+        const auto capacity = AvailableCharacters(*queue);
+        // 1.7.x has additional event pools before these links. Use the library's
+        // runtime-aware accessors for both legacy and experimental runtimes.
+        *tail = AppendGameCharacters(*queue, DirectIme::Take(capacity));
     }
     previousDispatch(source, &head);
     for (auto [node, next] : links) node->next = next;
@@ -163,7 +159,8 @@ void OnMessage(SKSE::MessagingInterface::Message* m) {
         EnumWindows(FindWindow, 0);
         TextBridge::Meridian::Install();
         TextBridge::SettingsMenu::Install();
-        // CommonLib selects SE ID 67315 or AE ID 68617; both call offsets are 0x7B.
+        // Matches Meridian's current guarded dispatch call site. The 1.7.104
+        // site still needs game verification; never install if it is not E8.
         const auto call = REL::RelocationID(67315, 68617).address() + 0x7B;
         if (*reinterpret_cast<const std::uint8_t*>(call) != 0xE8 || !TextBridge::DirectIme::Install(gameWindow)) {
             SKSE::log::error("Direct IME installation failed"); return;
@@ -171,6 +168,7 @@ void OnMessage(SKSE::MessagingInterface::Message* m) {
         SKSE::AllocTrampoline(32);
         previousDispatch = SKSE::GetTrampoline().write_call<5>(call, InputHook);
         installed = true;
+        SKSE::log::info("Experimental runtime build 0.3.11-beta.1; CommonLibSSE-NG 10.1.0; input hook installed on {} at {:X}", REL::Module::get().version().string(), call);
         if (auto ui = RE::UI::GetSingleton()) ui->AddEventSink(new MenuEvents);
         SKSE::log::info("Direct IME installed: toggle scan code {}; Prisma native passthrough", TextBridge::Settings::Get().hotkey);
     }
@@ -187,7 +185,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse) {
     const auto runtime=skse->RuntimeVersion();
     SKSE::log::info("Loading Text Bridge on Skyrim {}",runtime.string());
     if (!TextBridge::SupportedRuntime(runtime[0],runtime[1],runtime[2],runtime[3])) {
-        SKSE::log::error("Unsupported Skyrim runtime {}; allowed: 1.5.97 and 1.6.1170",runtime.string()); return false;
+        SKSE::log::error("Unsupported Skyrim runtime {}; allowed: 1.5.97, 1.6.1170 and experimental 1.7.104",runtime.string()); return false;
     }
     if (GetModuleHandleW(L"SimpleIME.dll")) {
         SKSE::log::error("Disable SimpleIME before loading Text Bridge"); return false;

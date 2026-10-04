@@ -1,4 +1,4 @@
-param([string]$Version = '0.3.10', [switch]$Release)
+param([string]$Version = '0.3.11-beta.1', [switch]$Release)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $dist = Join-Path $projectRoot 'dist'
@@ -14,7 +14,10 @@ $readme = [Text.StringBuilder]::new()
 $notices = [ordered]@{
     'PROJECT LICENSE — GPL-3.0-only' = 'LICENSE'
     'THIRD-PARTY NOTICES' = 'THIRD-PARTY-NOTICES.md'
-    'COMMONLIBVR / COMMONLIBSSE — MIT' = 'extern\CommonLibVR\LICENSE'
+    'COMMONLIBSSE-NG — GPL-3.0-or-later' = 'extern\CommonLibVR\COPYING.txt'
+    'COMMONLIBSSE-NG — ADDITIONAL PERMISSIONS' = 'extern\CommonLibVR\EXCEPTIONS.md'
+    'COMMONLIBSSE-NG — LEGACY MIT ATTRIBUTION' = 'extern\CommonLibVR\licenses\LICENSE-MIT.txt'
+    'COMMONLIBSSE-NG — HDE64 BSD NOTICE' = 'extern\CommonLibVR\licenses\LICENSE-hde64.txt'
     'SPDLOG — MIT' = 'extern\spdlog\LICENSE'
     'PRISMA UI — ORIGINAL LICENSE' = 'extern\PrismaUI\LICENSE.md'
     'SKSE MENU FRAMEWORK — LGPL-2.1' = 'extern\SKSEMenuFramework\LICENSE'

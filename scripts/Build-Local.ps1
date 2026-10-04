@@ -1,6 +1,7 @@
 param(
     [string]$CommonLibArchive = '',
-    [string]$SpdlogSource = ''
+    [string]$SpdlogSource = '',
+    [string]$RuntimeAddressLibrary = ''
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
@@ -19,7 +20,7 @@ $compilerDir = Join-Path $msvc.FullName 'bin\Hostx64\x64'
 $env:PATH = "$compilerDir;$env:PATH"
 $env:INCLUDE = @((Join-Path $msvc.FullName 'include'),(Join-Path $sdkRoot "Include\$sdkVersion\ucrt"),(Join-Path $sdkRoot "Include\$sdkVersion\shared"),(Join-Path $sdkRoot "Include\$sdkVersion\um"),(Join-Path $sdkRoot "Include\$sdkVersion\winrt")) -join ';'
 $env:LIB = @((Join-Path $msvc.FullName 'lib\x64'),(Join-Path $sdkRoot "Lib\$sdkVersion\ucrt\x64"),(Join-Path $sdkRoot "Lib\$sdkVersion\um\x64")) -join ';'
-if (!$CommonLibArchive) { $CommonLibArchive = Join-Path $projectRoot 'extern\CommonLibVR\lib\commonlibsse-ng.lib' }
+if (!$CommonLibArchive) { $CommonLibArchive = Join-Path $projectRoot 'build\windows\x64\releasedbg\commonlibsse-ng.lib' }
 if (!$SpdlogSource -and (Test-Path -LiteralPath (Join-Path $projectRoot 'extern\spdlog\src\spdlog.cpp'))) { $SpdlogSource = Join-Path $projectRoot 'extern\spdlog' }
 if (!$SpdlogSource) {
     $candidate = Get-ChildItem -Path (Join-Path $projectRoot 'tools-cache\xmake\.xmake\cache\packages\*\s\spdlog\v1.16.0\source\spdlog') -Directory | Select-Object -First 1
@@ -55,7 +56,7 @@ if ($LASTEXITCODE) { throw 'Settings and alpha checks failed' }
 if ($LASTEXITCODE) { throw 'Meridian ABI check compilation failed' }
 & "$outputDir\MeridianAbiCheck.exe"
 if ($LASTEXITCODE) { throw 'Meridian ABI check failed' }
-$pluginFlags = @('/DENABLE_SKYRIM_SE=1','/DENABLE_SKYRIM_AE=1','/DTEXTBRIDGE_MANUAL_BUILD','/DSPDLOG_COMPILED_LIB','/DSPDLOG_USE_STD_FORMAT','/DSPDLOG_WCHAR_TO_UTF8_SUPPORT',"/I$projectRoot\extern\CommonLibVR\include", "/I$projectRoot\extern\PrismaUI", "/I$SpdlogSource\include")
+$pluginFlags = @('/DENABLE_SKYRIM_SE=1','/DENABLE_SKYRIM_AE=1','/DHAS_SKYRIM_MULTI_TARGETING=1','/DSKSE_SUPPORT_PATCH_SAFETY=1','/DTEXTBRIDGE_MANUAL_BUILD','/DSPDLOG_COMPILED_LIB','/DSPDLOG_USE_STD_FORMAT','/DSPDLOG_WCHAR_TO_UTF8_SUPPORT',"/I$projectRoot\extern\CommonLibVR\include", "/I$projectRoot\extern\PrismaUI", "/I$SpdlogSource\include")
 $sources = @((Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Filter '*.cpp' | Where-Object Name -NE 'Composer.cpp').FullName)
 $sources += @('spdlog.cpp','stdout_sinks.cpp','color_sinks.cpp','file_sinks.cpp','async.cpp','cfg.cpp') | ForEach-Object { Join-Path $SpdlogSource "src\$_" }
 & cl @common @pluginFlags /c /MP @sources "/Fo$outputDir\\"
@@ -63,6 +64,12 @@ if ($LASTEXITCODE) { throw 'Plugin compilation failed' }
 $objects = @($sources | ForEach-Object { Join-Path $outputDir ([IO.Path]::GetFileNameWithoutExtension($_) + '.obj') })
 & link /NOLOGO /DLL /DEBUG /INCREMENTAL:NO "/OUT:$outputDir\SkyrimTextBridge.dll" @objects $CommonLibArchive user32.lib gdi32.lib imm32.lib comctl32.lib ole32.lib oleaut32.lib uuid.lib shell32.lib advapi32.lib version.lib d3d11.lib dxgi.lib d3dcompiler.lib dbghelp.lib bcrypt.lib
 if ($LASTEXITCODE) { throw 'Plugin link failed' }
+if ($RuntimeAddressLibrary) {
+    & cl @common @pluginFlags /DENABLE_COMMONLIBSSE_TESTING tools/RuntimeQueueChecks.cpp "/Fe$outputDir\RuntimeQueueChecks.exe" "/Fo$outputDir\RuntimeQueueChecks.obj" /link $CommonLibArchive @($objects | Where-Object { [IO.Path]::GetFileName($_) -in @('spdlog.obj','stdout_sinks.obj','color_sinks.obj','file_sinks.obj','async.obj','cfg.obj') }) user32.lib ole32.lib shell32.lib advapi32.lib version.lib d3d11.lib dxgi.lib d3dcompiler.lib dbghelp.lib bcrypt.lib /INCREMENTAL:NO
+    if ($LASTEXITCODE) { throw 'Runtime queue checks compilation failed' }
+    & "$outputDir\RuntimeQueueChecks.exe" $RuntimeAddressLibrary
+    if ($LASTEXITCODE) { throw 'Runtime queue/address checks failed' }
+}
 & cl @common tools/RuntimeMetadataCheck.cpp "/Fe$outputDir\RuntimeMetadataCheck.exe" "/Fo$outputDir\RuntimeMetadataCheck.obj" /link user32.lib /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'Metadata checker compilation failed' }
 & "$outputDir\RuntimeMetadataCheck.exe" "$outputDir\SkyrimTextBridge.dll"

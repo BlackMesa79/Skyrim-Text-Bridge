@@ -1,5 +1,9 @@
 # Skyrim Text Bridge
 
+**Experimental branch — 0.3.11-beta.1 / 实验分支。** Adds exact Skyrim **1.7.104** admission using CommonLibSSE-NG **10.1.0** and version-aware character queues. Existing 1.5.97 / 1.6.1170 admission is retained. This build has passed offline checks, but none of these runtimes has been game-tested with this new binary yet. The user-tested 0.3.10 stable build remains separate. See [beta notes](release-materials/0.3.11-beta.1/TESTING.md).
+
+**1.7.104 requires SKSE 2.3.1, its matching Address Library and a working nonexclusive keyboard patch (Media Keys Fix SKSE or equivalent).** The locally installed Media Keys Fix 1.0.2 advertises 1.7.99; its 1.7.104 operation is still unverified. Do not assume updating Text Bridge also updates its prerequisites. 本实验包先供本地回归测试，待用户确认后再公开发布测试版；请勿同时启用正式版和实验版。
+
 0.3.10 adds optional automatic activation and a clean Esc exit that returns game input to English. Media Keys Fix SKSE is required for the normal setup. An optional native input-state/reset API is retained for FavoriteWheel; that separate integration still requires its own validation.
 
 A Skyrim SKSE plugin for Chinese IME input, explicit English typing, and keyboard hotkey filtering. Includes an adjustable candidate panel and optional SKSE Menu Framework settings.
@@ -10,7 +14,7 @@ A Skyrim SKSE plugin for Chinese IME input, explicit English typing, and keyboar
 
 ## 使用
 
-1. 安装与游戏匹配的 SKSE64、Address Library 和 Media Keys Fix SKSE（或等效非独占键盘补丁）；支持 Skyrim **1.5.97 / 1.6.1170**。
+1. 安装与游戏匹配的 SKSE64、Address Library 和 Media Keys Fix SKSE（或等效非独占键盘补丁）；实验 DLL 接受 Skyrim **1.5.97 / 1.6.1170 / 1.7.104**，实测状态见上方说明。
 2. 将发行 ZIP 安装到 MO2，禁用 SimpleIME。更新前退出游戏；个人 `SkyrimTextBridge.user.ini` 会保留。
 3. 点击文本框，按 **F8** 开启输入；按 **Ctrl + 空格**切换中英文，再按 F8 关闭。切换语言会取消尚未选定的拼音。
 4. 可选安装 SKSE Menu Framework，在默认 F1 菜单的 **Skyrim Text Bridge → 输入法与面板设置**调整开关、快捷键、自动开启、位置、颜色及背景透明度。
@@ -33,7 +37,7 @@ Automatic activation is optional and off by default. It covers SkyUI item-menu s
 | Prisma UI / Outfit Wheeler | **兼容共存**：使用 Prisma 原生输入，本模组不提供输入支持、不接管 | 仅查询公开 V1 焦点接口以避让，不限制框架发行版本 |
 | Meridian UI / Tailor | **输入支持**：F8 或可选自动开启，经 View/1 与 DOM 提交文字 | 协商 `Meridian.View/1`，不限制框架发行版本 |
 | SKSE Menu Framework | 可选设置页 | 检查所需导出接口，不限制发行版本 |
-| Skyrim | SKSE / CommonLib 地址与结构 | 严格限制 1.5.97、1.6.1170 |
+| Skyrim | SKSE / CommonLib 地址与结构 | 实验分支严格限制 1.5.97、1.6.1170、1.7.104；未放行其他 1.7.x |
 | Media Keys Fix SKSE | 实际输入前置，提供非独占键盘环境；等效补丁可替代 | 不静态链接其 DLL |
 | SimpleIME | 使用同一输入目标 | 禁止同时启用 |
 

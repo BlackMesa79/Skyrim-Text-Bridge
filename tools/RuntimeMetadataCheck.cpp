@@ -12,8 +12,11 @@ int wmain(int argc,wchar_t** argv) {
     std::uint32_t record{};std::memcpy(&record,data,4);if(record!=1)return 5;
     std::uint32_t versions[16]{};std::memcpy(versions,data+0x30c,sizeof(versions));
     const std::uint32_t se=(1u<<24)|(5u<<16)|(97u<<4),ae=(1u<<24)|(6u<<16)|(1170u<<4);
-    if(versions[0]!=se || versions[1]!=ae)return 6;
-    for(int i=2;i<16;++i)if(versions[i])return 7;
+    const std::uint32_t ae17=(1u<<24)|(7u<<16)|(104u<<4);
+    if(versions[0]!=se || versions[1]!=ae || versions[2]!=ae17)return 6;
+    for(int i=3;i<16;++i)if(versions[i])return 7;
+    std::uint32_t extraFlags{};std::memcpy(&extraFlags,data+0x304,4);
+    if(!(extraFlags & (1u<<1)))return 8; // SKSE 2.3.x must see Address Library V5 support.
     FreeLibrary(module);
-    puts("DLL exports Query/Load; metadata lists only SE 1.5.97 and AE 1.6.1170 (entry point not executed)");
+    puts("DLL exports Query/Load; V5 flag set; only SE 1.5.97, AE 1.6.1170 and experimental 1.7.104 listed (entry point not executed)");
 }

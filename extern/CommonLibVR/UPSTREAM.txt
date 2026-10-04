@@ -1,0 +1,9 @@
+CommonLibSSE-NG 10.1.0
+Repository: https://github.com/alandtse/CommonLibSSE-NG
+Tag: v10.1.0
+Commit: 39f9d07a6ffabea8fb559eee87ab7d27cd463e8a
+Imported: 2026-10-04 on codex/runtime-1-7-104 only.
+Historical vendor directory name retained to minimize build-path changes.
+Upstream sources unchanged; this provenance file is a local addition.
+License: GPL-3.0-or-later with EXCEPTIONS.md additional permissions.
+See COPYING.txt, EXCEPTIONS.md, licenses/ and per-file notices.

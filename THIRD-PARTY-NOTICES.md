@@ -2,7 +2,7 @@
 
 The GPL-3.0-only license applies to original Skyrim Text Bridge code. Third-party source files, SDK headers and their licenses remain separate and retain their original notices.
 
-- **CommonLibVR / CommonLibSSE** (`extern/CommonLibVR`): MIT. Matching source snapshot used by the local build, including upstream build scripts. Upstream: https://github.com/alandtse/CommonLibVR . Copyright notices are in its LICENSE and source files.
+- **CommonLibSSE-NG 10.1.0** (`extern/CommonLibVR`, historical directory name): GPL-3.0-or-later with the additional permissions in `EXCEPTIONS.md`. Upstream: https://github.com/alandtse/CommonLibSSE-NG , tag `v10.1.0`, commit `39f9d07a6ffabea8fb559eee87ab7d27cd463e8a`. The current license is `COPYING.txt`; the historical MIT attribution and HDE64 BSD notice are retained in `licenses/`. The old MIT notice is not the current license of the whole library. This snapshot replaces the previous dependency only on the experimental branch.
 - **spdlog 1.16.0** (`extern/spdlog`): MIT; retained per-file notices also apply to bundled headers. Upstream: https://github.com/gabime/spdlog . Only sources/headers and build support are included, not a compiled library.
 - **Meridian UI public SDK** (`extern/MeridianUI`): ViewAPI.h and Settings.h explicitly carry SPDX MIT notices. The upstream project LICENSE is GPL-3.0 and is included unchanged; no Meridian renderer or CEF binaries are distributed. Upstream: https://github.com/heathbrownkeyworks/MeridianUI .
 - **SKSE Menu Framework API** (`extern/SKSEMenuFramework`): unmodified API header and upstream LGPL-2.1 license. The runtime is installed separately. Upstream: https://github.com/QTR-Modding/SKSE-Menu-Framework-3 .
