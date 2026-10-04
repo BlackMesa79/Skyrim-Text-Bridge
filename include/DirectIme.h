@@ -5,6 +5,8 @@
 namespace TextBridge::DirectIme {
 bool Install(HWND window);
 bool Toggle();
+// Cancels composition first; exits after committed characters have drained.
+bool Escape();
 void Reset();
 void Tick();
 bool SuppressKeyboard();

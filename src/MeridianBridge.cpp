@@ -7,6 +7,7 @@
 #include "../extern/MeridianUI/ViewAPI.h"
 #include <atomic>
 #include <mutex>
+#include <charconv>
 namespace TextBridge::Meridian {
 namespace {
 using API=::Meridian::UI::View::IViewAPI;
@@ -17,6 +18,36 @@ using FocusFn=Result (*)(API*,View,Mode);
 API* api{}; FocusFn originalFocus{};
 std::atomic<View> focused{0},captured{0}; std::atomic<std::uint64_t> sequence{0};
 std::atomic<bool> rejected{false}; std::mutex dispatchMutex;
+View monitored{};
+std::mutex focusMutex;
+std::uint64_t monitorEpoch{}, fieldId{};
+ULONGLONG focusReportedAt{}, lastProbe{}, nextMonitorAttempt{};
+void AutoStatus(const char* payload) {
+    if (!payload) return;
+    std::string_view value(payload);
+    auto separator = value.find(':'); if (separator == std::string_view::npos) return;
+    std::uint64_t epoch{}, field{};
+    auto a = std::from_chars(value.data(), value.data()+separator, epoch);
+    auto b = std::from_chars(value.data()+separator+1, value.data()+value.size(), field);
+    if (a.ec != std::errc{} || a.ptr != value.data()+separator || b.ec != std::errc{} ||
+        b.ptr != value.data()+value.size()) return;
+    std::lock_guard lock(focusMutex);
+    if (epoch != monitorEpoch) return;
+    fieldId = field; focusReportedAt = GetTickCount64();
+}
+void StopAutoObserver() {
+    const auto old = std::exchange(monitored, 0);
+    std::uint64_t oldEpoch{};
+    {
+        std::lock_guard lock(focusMutex);
+        oldEpoch = monitorEpoch++; fieldId = 0; focusReportedAt = 0;
+    }
+    lastProbe = 0;
+    if (api && old && api->IsReady(old)) {
+        auto script = "if(window.__stbMeridian)window.__stbMeridian.stopObserve("+std::to_string(oldEpoch)+");";
+        api->ExecuteJavaScript(old, script.c_str());
+    }
+}
 Result Focus(API* self,View view,Mode mode) {
     auto result=originalFocus(self,view,mode);
     if(result==Result::Granted || result==Result::AlreadyFocused) focused=view;
@@ -45,17 +76,72 @@ void Install() {
     REL::safe_write(reinterpret_cast<std::uintptr_t>(&table[9]),reinterpret_cast<std::uintptr_t>(&Focus));
     SKSE::log::info("Meridian View/1 focus observer installed");
 }
+void PollAutoFocus(bool enable) {
+    if (!enable) {
+        if (monitored) StopAutoObserver();
+        nextMonitorAttempt = 0; return;
+    }
+    const auto view = focused.load();
+    if (!api || !view || !api->IsReady(view) || !api->HasFocus(view)) {
+        if (monitored) StopAutoObserver();
+        nextMonitorAttempt = 0;
+        return;
+    }
+    const auto now = GetTickCount64();
+    if (monitored != view) {
+        if (monitored) StopAutoObserver();
+        if (now < nextMonitorAttempt) return;
+        nextMonitorAttempt = now + 500;
+        monitored = view;
+        std::uint64_t epoch{};
+        {
+            std::lock_guard lock(focusMutex);
+            epoch = ++monitorEpoch; fieldId = 0; focusReportedAt = 0;
+        }
+        if (!api->RegisterListener(view, "stbMeridianFocus", AutoStatus)) { StopAutoObserver(); return; }
+        std::string script = MeridianScript;
+        script += ";window.__stbMeridian.observe("+std::to_string(epoch)+");";
+        if (!api->ExecuteJavaScript(view, script.c_str())) { StopAutoObserver(); return; }
+    }
+    if (!lastProbe || now-lastProbe >= 50) {
+        lastProbe = now;
+        std::uint64_t epoch{};
+        { std::lock_guard lock(focusMutex); epoch = monitorEpoch; }
+        auto script="if(window.__stbMeridian)window.__stbMeridian.probe("+std::to_string(epoch)+");";
+        if (!api->ExecuteJavaScript(view,script.c_str())) {
+            std::lock_guard lock(focusMutex); fieldId = 0; focusReportedAt = 0;
+        }
+    }
+}
+std::string AutoTarget() {
+    std::uint64_t field{}, epoch{}; ULONGLONG reported{};
+    {
+        std::lock_guard lock(focusMutex);
+        field = fieldId; epoch = monitorEpoch; reported = focusReportedAt;
+    }
+    if (!monitored || !field || !reported || GetTickCount64()-reported > 500 || !api ||
+        focused.load()!=monitored || !api->IsReady(monitored) || !api->HasFocus(monitored)) return {};
+    return "mer:"+std::to_string(monitored)+":"+std::to_string(epoch)+":"+std::to_string(field);
+}
 bool HasFocus() {return api && api->HasAnyFocus();}
 bool Session() {return captured.load()!=0;}
 bool Valid() {auto view=captured.load();return api && view && !rejected && focused.load()==view && api->IsReady(view) && api->HasFocus(view);}
-bool Begin() {
+bool Begin(std::string_view autoTarget) {
     std::lock_guard lock(dispatchMutex);
+    std::uint64_t expectedField{};
+    if (!autoTarget.empty()) {
+        if (autoTarget != AutoTarget()) return false;
+        auto last = autoTarget.rfind(':');
+        if (last == std::string_view::npos) return false;
+        auto number = std::from_chars(autoTarget.data()+last+1, autoTarget.data()+autoTarget.size(), expectedField);
+        if (number.ec != std::errc{} || number.ptr != autoTarget.data()+autoTarget.size() || !expectedField) return false;
+    }
     auto view=focused.load();
     if(!api || !view || !api->IsReady(view) || !api->HasFocus(view)) {SKSE::log::warn("Meridian active view not observed; close and reopen its menu");return false;}
     auto id=++sequence; captured=view; rejected=false;
     if(!api->RegisterListener(view,"stbMeridianResult",Status)) {captured=0;return false;}
     std::string script=MeridianScript;
-    script+=";window.__stbMeridian.capture("+std::to_string(id)+");";
+    script+=";window.__stbMeridian.capture("+std::to_string(id)+","+std::to_string(expectedField)+");";
     if(!api->ExecuteJavaScript(view,script.c_str())) {captured=0;return false;}
     SKSE::log::info("Meridian IME target captured asynchronously, session {}",id);return true;
 }

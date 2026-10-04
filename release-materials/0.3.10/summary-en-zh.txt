@@ -1,0 +1,3 @@
+Chinese IME input for Skyrim with a candidate panel, English typing, optional automatic activation and clean Esc exit. Supports Meridian UI, Modex and SkyUI; coexists with Prisma UI. Requires Media Keys Fix SKSE.
+
+为天际提供中文输入、候选面板、英文输入、可选自动开启及顺畅的 Esc 退出。支持 Meridian UI、Modex 和 SkyUI，兼容 Prisma UI。需要 Media Keys Fix SKSE。

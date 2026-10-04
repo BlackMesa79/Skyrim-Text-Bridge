@@ -15,7 +15,11 @@ void __stdcall Render() {
     auto value=Settings::Get(); bool changed=false;
     ImGuiMCP::TextUnformatted("Skyrim Text Bridge");
     changed |= ImGuiMCP::Checkbox("启用模组",&value.enabled);
+    changed |= ImGuiMCP::Checkbox("文本框聚焦时自动开启",&value.autoEnable);
+    ImGuiMCP::TextUnformatted("可选：SkyUI 搜索框及 Meridian/Tailor 文本框；Modex 仍用 F8，Prisma 保持原生输入。");
+    ImGuiMCP::TextUnformatted("按输入法快捷键手动关闭后，本输入框暂不自动开启；离开后重新聚焦即可恢复。");
     ImGuiMCP::TextUnformatted("开启后用 Ctrl + Space 切换中英文；再次按输入法快捷键退出。");
+    ImGuiMCP::TextUnformatted("Esc：有拼音时先取消，输入完成后退出；退出时关闭游戏输入法，恢复正常操作。");
     ImGuiMCP::TextUnformatted("输入期间拦截普通键热键，保留鼠标及退格、方向、删除等编辑键。");
     ImGuiMCP::TextUnformatted(("输入法快捷键：" + Utf8(Settings::KeyName(value.hotkey))).c_str());
     if (ImGuiMCP::Button(capturing ? "等待按键（Esc 取消）" : "修改快捷键")) capturing = !capturing.load();

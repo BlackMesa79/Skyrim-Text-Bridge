@@ -1,0 +1,13 @@
+Skyrim Text Bridge 0.3.10
+
+- Added optional automatic activation for supported SkyUI searches and Meridian/Tailor text fields; off by default.
+  新增可选文本框聚焦自动开启，支持指定 SkyUI 搜索框及 Meridian/Tailor，默认关闭。
+
+- Esc now exits input cleanly and restores English game input, preventing stuck pinyin and movement-key interference.
+  优化 Esc 退出：自动恢复英文输入状态，解决拼音残留和移动键受影响的问题。
+
+- Improved Ctrl+A/C/X/V handling outside composition and protection for pending text commits.
+  完善非选词期间的 Ctrl+A/C/X/V 编辑快捷键及待提交文字保护。
+
+- Explicitly added Media Keys Fix SKSE to the requirements; Prisma UI remains coexistence-compatible.
+  明确补充 Media Keys Fix SKSE 必需依赖，继续与 Prisma UI 兼容共存。

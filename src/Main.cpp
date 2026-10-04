@@ -8,11 +8,14 @@
 #include "MeridianBridge.h"
 #include "RuntimeSupport.h"
 #include "TypingGuard.h"
+#include "AutoInputPolicy.h"
+#include "SkyUiFocus.h"
 namespace {
 using Dispatch = void(RE::BSTEventSource<RE::InputEvent*>*, RE::InputEvent**);
 REL::Relocation<Dispatch> previousDispatch;
 HWND gameWindow{}; bool installed = false;
 TextBridge::TypingGuard typingGuard;
+TextBridge::AutoInputPolicy autoInput;
 BOOL CALLBACK FindWindow(HWND window, LPARAM) {
     DWORD process{}; GetWindowThreadProcessId(window, &process);
     wchar_t name[80]{}; GetClassNameW(window, name, 80);
@@ -29,18 +32,28 @@ void InputHook(RE::BSTEventSource<RE::InputEvent*>* source, RE::InputEvent** eve
         }
     const auto settings=Settings::Get();
     const unsigned hotkey=settings.hotkey;
+    if (!settings.autoEnable) {
+        Meridian::PollAutoFocus(false);
+        if (!autoInput.OwnsMode()) autoInput.Reset();
+    }
     if (GetForegroundWindow() != gameWindow) typingGuard.Clear();
     if (!settings.enabled || SettingsMenu::Blocking()) {
+        Meridian::PollAutoFocus(false);
+        autoInput.Reset();
         typingGuard.Clear();
         if (DirectIme::Active()) DirectIme::Reset();
         if (Meridian::Session()) Meridian::Cancel();
         previousDispatch(source,events); return;
     }
-    bool toggleDown = false;
-    for (auto e = events ? *events : nullptr; e; e = e->next)
-        if (auto b = e->AsButtonEvent(); b && b->GetDevice() == RE::INPUT_DEVICE::kKeyboard && b->GetIDCode() == hotkey && b->IsDown()) toggleDown = true;
-    // Idle path must not query Prisma, replace event lists, or touch the game HWND.
-    if (!DirectIme::Active() && !Meridian::Session() && !toggleDown && !typingGuard.Pending()) {
+    bool toggleDown = false, pointerDown = false;
+    for (auto e = events ? *events : nullptr; e; e = e->next) {
+        if (auto b = e->AsButtonEvent(); b && b->IsDown()) {
+            if (b->GetDevice() == RE::INPUT_DEVICE::kKeyboard && b->GetIDCode() == hotkey) toggleDown = true;
+            if (b->GetDevice() == RE::INPUT_DEVICE::kMouse && b->GetIDCode() < 8) pointerDown = true;
+        }
+    }
+    // With automatic input off, retain the original untouched idle path.
+    if (!settings.autoEnable && !autoInput.OwnsMode() && !DirectIme::Active() && !Meridian::Session() && !toggleDown && !typingGuard.Pending()) {
         for (auto e = events ? *events : nullptr; e; e=e->next)
             if (auto b=e->AsButtonEvent(); b && b->GetDevice()==RE::INPUT_DEVICE::kKeyboard)
                 typingGuard.Filter(b->GetIDCode(),b->IsUp(),false);
@@ -48,37 +61,68 @@ void InputHook(RE::BSTEventSource<RE::InputEvent*>* source, RE::InputEvent** eve
     }
     Prisma::Refresh();
     if (Prisma::OwnsInput()) {
+        Meridian::PollAutoFocus(false);
+        autoInput.Reset();
         if (toggleDown) SKSE::log::info("IME toggle bypassed: Prisma owns input or its V1 focus API is unavailable");
         typingGuard.Clear();
         if (DirectIme::Active()) DirectIme::Reset();
         if (Meridian::Session()) Meridian::Cancel();
         previousDispatch(source, events); return;
     }
+    const bool wasDirect = DirectIme::SuppressKeyboard();
     DirectIme::Tick();
     if (Meridian::Session() && (!DirectIme::Active() || !Meridian::Valid())) {
         DirectIme::Reset(); Meridian::Cancel();
     } else if (DirectIme::Active() && !Meridian::Session() && Meridian::HasFocus()) {
         DirectIme::Reset();
     }
+    // Mouse focus changes are dispatched below. End the old automatic session
+    // first so queued text cannot follow a click into another Scaleform field.
+    const bool deferAutoStart = pointerDown && autoInput.OwnsMode();
+    if (deferAutoStart) {
+        DirectIme::Reset(); Meridian::Cancel(); autoInput.Interrupted();
+    }
+    const bool autoPermitted = settings.autoEnable && GetForegroundWindow() == gameWindow;
+    Meridian::PollAutoFocus(autoPermitted);
+    // A focused web view takes precedence over any underlying Scaleform menu.
+    const auto target = autoPermitted ? (Meridian::HasFocus() ? Meridian::AutoTarget() : SkyUiFocus::Target()) : std::string{};
+    const auto action = autoInput.Update(target, autoPermitted, DirectIme::SuppressKeyboard(), toggleDown || deferAutoStart);
+    if (action == AutoInputPolicy::Action::Stop) {
+        DirectIme::Reset(); Meridian::Cancel();
+    } else if (action == AutoInputPolicy::Action::Start && !DirectIme::Active()) {
+        if (target.starts_with("mer:") && !Meridian::Begin(target)) autoInput.Failed(target);
+        else if (DirectIme::Toggle()) autoInput.Started(target);
+        else { Meridian::Cancel(); autoInput.Failed(target); }
+    }
     std::vector<std::pair<RE::InputEvent*, RE::InputEvent*>> links;
     RE::InputEvent* head = nullptr; RE::InputEvent** tail = &head;
-    const bool wasDirect = DirectIme::SuppressKeyboard();
     for (auto e = events ? *events : nullptr; e;) {
         auto next = e->next; links.emplace_back(e, next);
         const auto b = e->AsButtonEvent();
+        const auto scan = b ? b->GetIDCode() : 0;
+        const bool keyboard = b && b->GetDevice() == RE::INPUT_DEVICE::kKeyboard;
+        const bool escape = keyboard && scan == 0x01 && (wasDirect || DirectIme::SuppressKeyboard());
+        if (escape && b->IsDown() && DirectIme::Escape()) {
+            Meridian::Cancel();
+            if (autoPermitted) autoInput.Manual(target, false);
+        }
         const bool toggle = b && b->GetDevice() == RE::INPUT_DEVICE::kKeyboard && b->GetIDCode() == hotkey;
         if (toggle && b->IsDown()) {
-            if (!DirectIme::Active() && Meridian::HasFocus() && !Meridian::Begin()) { e=next; continue; }
-            const bool on = DirectIme::Toggle();
+            if (!wasDirect && !DirectIme::Active() && Meridian::HasFocus() && !Meridian::Begin()) {
+                if (autoPermitted) autoInput.Failed(target);
+                e=next; continue;
+            }
+            // Focus loss may already have closed an active automatic session this frame.
+            const bool on = wasDirect && !DirectIme::SuppressKeyboard() ? false : DirectIme::Toggle();
             if (!on) Meridian::Cancel();
+            if (autoPermitted) autoInput.Manual(target, on);
             SKSE::log::info("Direct IME {}", on ? "enabled" : "disabled");
         }
         const bool suppress = wasDirect || DirectIme::SuppressKeyboard();
-        const auto scan = b ? b->GetIDCode() : 0;
-        const bool keyboard = b && b->GetDevice() == RE::INPUT_DEVICE::kKeyboard;
         const bool language = keyboard && scan == 0x39 && suppress && (GetAsyncKeyState(VK_CONTROL) & 0x8000);
         if (language && b->IsDown()) DirectIme::ToggleEnglish();
-        const bool consume = toggle || language || (suppress && (!EditingKey(scan) || DirectIme::BlockNavigation()));
+        const bool shortcut=EditingShortcut(scan,(GetAsyncKeyState(VK_CONTROL)&0x8000)!=0);
+        const bool consume = toggle || escape || language || (suppress && ((!EditingKey(scan) && !shortcut) || DirectIme::BlockNavigation()));
         const bool drop = (keyboard && typingGuard.Filter(scan,b->IsUp(),consume)) || (suppress && e->AsCharEvent());
         if (!drop) { *tail = e; tail = &e->next; }
         e = next;
@@ -103,6 +147,8 @@ void InputHook(RE::BSTEventSource<RE::InputEvent*>* source, RE::InputEvent** eve
 class MenuEvents : public RE::BSTEventSink<RE::MenuOpenCloseEvent> {
     RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent*, RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override {
         TextBridge::DirectIme::Reset();
+        TextBridge::Meridian::Cancel();
+        autoInput.Interrupted();
         typingGuard.Clear();
         return RE::BSEventNotifyControl::kContinue;
     }
@@ -128,8 +174,12 @@ void OnMessage(SKSE::MessagingInterface::Message* m) {
         if (auto ui = RE::UI::GetSingleton()) ui->AddEventSink(new MenuEvents);
         SKSE::log::info("Direct IME installed: toggle scan code {}; Prisma native passthrough", TextBridge::Settings::Get().hotkey);
     }
-    if (m->type == SKSE::MessagingInterface::kPreLoadGame || m->type == SKSE::MessagingInterface::kNewGame)
+    if (m->type == SKSE::MessagingInterface::kPreLoadGame || m->type == SKSE::MessagingInterface::kNewGame) {
         TextBridge::DirectIme::Reset();
+        TextBridge::Meridian::Cancel();
+        TextBridge::Meridian::PollAutoFocus(false);
+        autoInput.Reset(); typingGuard.Clear();
+    }
 }
 }
 SKSEPluginLoad(const SKSE::LoadInterface* skse) {
@@ -149,6 +199,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse) {
     TextBridge::Settings::Load(userConfig.wstring());
     if (!hasUser) {
         auto value=TextBridge::Settings::Get();
+        value.autoEnable=GetPrivateProfileIntW(L"Input",L"AutoEnable",0,config.c_str())!=0;
         value.hotkey=GetPrivateProfileIntW(L"Input",L"HotkeyScanCode",0x42,config.c_str());
         TextBridge::Settings::Set(value);
     }

@@ -21,6 +21,7 @@ void Load(const std::wstring& path) {
         try { return std::stof(buffer); } catch (...) { return fallback; }
     };
     value.enabled=read(L"Input",L"Enabled",1)!=0;
+    value.autoEnable=read(L"Input",L"AutoEnable",0)!=0;
     value.hotkey=GetPrivateProfileIntW(L"Input",L"HotkeyScanCode",66,file.c_str());
     value.x=read(L"Panel",L"X",value.x); value.y=read(L"Panel",L"Y",value.y);
     value.size=read(L"Panel",L"Scale",1); value.opacity=read(L"Panel",L"BackgroundOpacity",value.opacity);
@@ -31,6 +32,7 @@ void Load(const std::wstring& path) {
 bool Save() {
     const auto value=Get(); bool ok=true;
     auto write = [&](const wchar_t* section,const wchar_t* key,float v) { ok = WritePrivateProfileStringW(section,key,std::to_wstring(v).c_str(),file.c_str()) && ok; };
+    write(L"Input",L"AutoEnable",value.autoEnable);
     write(L"Input",L"Enabled",value.enabled); // Key is integer for GetPrivateProfileInt.
     ok = WritePrivateProfileStringW(L"Input",L"HotkeyScanCode",std::to_wstring(value.hotkey).c_str(),file.c_str()) && ok;
     write(L"Panel",L"X",value.x); write(L"Panel",L"Y",value.y); write(L"Panel",L"Scale",value.size); write(L"Panel",L"BackgroundOpacity",value.opacity);

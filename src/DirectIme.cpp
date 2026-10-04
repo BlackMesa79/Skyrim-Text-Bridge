@@ -20,6 +20,7 @@ std::atomic<bool> enabled{false}, attached{false}, composing{false}, posted{fals
 std::atomic<HHOOK> bootstrap{};
 std::atomic<bool> offTip{false};
 std::atomic<bool> english{false};
+std::atomic<bool> cancelComposition{false};
 bool appliedEnglish = false;
 std::atomic<ULONGLONG> requestTime{0};
 std::mutex mutex; std::deque<std::uint32_t> text;
@@ -90,7 +91,7 @@ void UpdatePanel() {
     display += L"\n" + (composition.empty() ? std::wstring(L"请在当前输入框打字") : composition);
     display += L"\n" + inputMethodName;
     auto candidates = CandidateText();
-    if (composition.empty()) display += L"\nCtrl + Space 切换中英文";
+    if (composition.empty()) display += L"\nCtrl + Space 切换中英文 · Esc 退出";
     if (!composition.empty() && candidates.empty()) display += L"\n输入法未提供候选列表";
     ImePanel::Show(hwnd, display + candidates);
 }
@@ -100,14 +101,22 @@ void Detach(bool tip = false) {
     detaching = true;
     posted = false;
     enabled = false; composing = false; highSurrogate = 0; Clear();
-    english = false; appliedEnglish = false;
+    english = false; appliedEnglish = false; cancelComposition = false;
     inputMethodName.clear(); nameCheckedAt = 0;
     const bool owned = attached.exchange(false);
     if (owned) {
         auto current = ImmGetContext(hwnd); if (current) ImmReleaseContext(hwnd, current);
         if (current == context) {
             ImmNotifyIME(context, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
+            if (!Prisma::OwnsInput()) ImmSetOpenStatus(context, FALSE);
             ImmAssociateContext(hwnd, saved);
+            // The original game context may still be in Chinese mode. Restore
+            // its association but leave gameplay keys outside IME composition.
+            // Never alter the context being handed to Prisma or a foreign owner.
+            if (saved && !Prisma::OwnsInput()) {
+                ImmNotifyIME(saved, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
+                ImmSetOpenStatus(saved, FALSE);
+            }
         }
         saved = nullptr;
     }
@@ -127,6 +136,11 @@ void Sync() {
         saved = ImmAssociateContext(hwnd, context);
         appliedEnglish = english.load();
         ImmSetOpenStatus(context, !appliedEnglish);
+        UpdatePanel();
+    }
+    if (cancelComposition.exchange(false)) {
+        ImmNotifyIME(context, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
+        composing = false; highSurrogate = 0;
         UpdatePanel();
     }
     if (appliedEnglish != english.load()) {
@@ -228,6 +242,18 @@ bool Toggle() {
     Tick(); return enabled;
 }
 void Reset() { enabled = false; offTip = false; Clear(); Tick(); }
+bool Escape() {
+    if (!SuppressKeyboard()) return false;
+    if (composing) {
+        cancelComposition = true; Tick(); return false;
+    }
+    // A result may already be queued while its final IME message is arriving.
+    // Keep this Esc local and let the ordinary commit path deliver the result.
+    if (BlockNavigation()) return false;
+    enabled = false; offTip = true;
+    if (GetCurrentThreadId() == GetWindowThreadProcessId(hwnd, nullptr)) Detach(true);
+    Tick(); return true;
+}
 bool Active() { return enabled || attached || subclassed || bootstrap.load(); }
 void Tick() {
     if (!hwnd || !Active()) return;
@@ -249,7 +275,10 @@ void Tick() {
     if ((subclassed || bootstrap.load()) && !posted.exchange(true) && !PostMessageW(hwnd, syncMessage, 0, 0)) posted = false;
 }
 bool SuppressKeyboard() { return enabled && !Prisma::OwnsInput(); }
-bool BlockNavigation() { return composing; }
+bool BlockNavigation() {
+    // A confirming key can reach the game before the committed text is drained.
+    std::lock_guard lock(mutex);return composing || !text.empty();
+}
 void ToggleEnglish() { if (enabled) { english = !english.load(); Tick(); } }
 std::vector<std::uint32_t> Take(unsigned capacity) {
     std::lock_guard lock(mutex); std::vector<std::uint32_t> result;

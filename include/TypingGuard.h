@@ -27,4 +27,7 @@ inline bool EditingKey(unsigned scan) {
     default: return false;
     }
 }
+inline bool EditingShortcut(unsigned scan,bool control) {
+    return control && (scan==0x1e || scan==0x2e || scan==0x2d || scan==0x2f);
+}
 }

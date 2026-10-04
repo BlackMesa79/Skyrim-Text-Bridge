@@ -8,7 +8,7 @@ Set-Location -LiteralPath $projectRoot
 & node tests/MeridianTests.cjs
 if ($LASTEXITCODE) { throw 'Meridian DOM checks failed' }
 $meridianScript = Get-Content -LiteralPath 'assets/MeridianBridge.js' -Raw
-('#pragma once' + "`n" + 'inline constexpr char MeridianScript[] = R"STBJS(' + $meridianScript + ')STBJS";' + "`n") | Set-Content -Encoding utf8 'include/MeridianBridge.generated.h'
+('#pragma once' + "`n" + 'inline constexpr char MeridianScript[] = R"STBJS(' + $meridianScript + ')STBJS";' + "`n") | Set-Content -NoNewline -Encoding utf8 'include/MeridianBridge.generated.h'
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
 if (!$vs) { throw 'Visual Studio C++ tools not found' }

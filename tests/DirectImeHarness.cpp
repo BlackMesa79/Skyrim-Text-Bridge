@@ -1,6 +1,7 @@
 #define TEXTBRIDGE_IME_TEST
 #include "../src/DirectIme.cpp"
 #include "../src/Settings.cpp"
+#include "../src/InputClientApi.cpp"
 #include <iostream>
 #include <cstdlib>
 #include <thread>
@@ -24,8 +25,18 @@ int main() {
     Check(!Active() && !context && GetWindowLongPtrW(window, GWLP_WNDPROC) == originalProc, "idle never changes window procedure or IME");
     Check(SendMessageW(window, WM_IME_NOTIFY, 0, 123) == 713 && seenParam == 123, "idle forwards peer IME unchanged");
     auto original = ImmGetContext(window); if (original) ImmReleaseContext(window, original);
+    const auto inherited = original;
+    original = ImmCreateContext();
+    Check(original != nullptr, "create known game context for exit-state checks");
+    ImmAssociateContext(window, original);
     Check(Toggle() && attached && context, "lazy attach on window thread");
     Check(SuppressKeyboard() && !composing, "suppress text before STARTCOMPOSITION");
+    std::uint32_t clientHotkey=0;
+    Check(SkyrimTextBridge_QueryInputV1(1,&clientHotkey)==7 && clientHotkey==66, "native client sees actual hotkey and active state");
+    Check(!SkyrimTextBridge_QueryInputV1(2,&clientHotkey) && !SkyrimTextBridge_QueryInputV1(1,nullptr), "native API rejects unsupported version and invalid output");
+    Enqueue(u"字");
+    Check(BlockNavigation() && (SkyrimTextBridge_QueryInputV1(1,&clientHotkey)&8), "pending committed text blocks confirming key before drain");
+    Take(5);Check(!BlockNavigation(), "navigation restored after pending commit drain");
     Check(!panelText.empty(), "visible enabled status requested");
     Check(panelText.find(L"当前输入法：测试输入法") != std::wstring::npos, "panel identifies selected IME");
     testInputMethodName=L"另一输入法";
@@ -56,22 +67,43 @@ int main() {
     ImmSetOpenStatus(context, TRUE);
     composing = true; SendMessageW(window, WM_CHAR, L'p', 0);
     Check(Take(5).empty(), "preedit character not committed");
+    Check(!Escape() && enabled && cancelComposition, "Esc cancels live composition without exiting immediately");
+    SendMessageW(window, syncMessage, 0, 0);
+    Check(!composing && !cancelComposition && enabled, "composition cancellation runs on window thread");
     Enqueue(u"中文"); auto first = Take(1);
     Check(first.size() == 1 && first[0] == 0x4e2d, "bounded Unicode commit drain");
+    Check(!Escape() && enabled && !text.empty(), "Esc waits for committed text instead of discarding it");
+    if (original) ImmSetOpenStatus(original, TRUE);
     prisma = true; SendMessageW(window, WM_NULL, 0, 0);
     auto restored = ImmGetContext(window); if (restored) ImmReleaseContext(window, restored);
     Check(!Active() && restored == original && text.empty(), "Prisma handoff fully unhooks and restores");
+    Check(!original || ImmGetOpenStatus(original), "Prisma handoff preserves original context Chinese state");
     Check(SendMessageW(window, WM_IME_NOTIFY, 0, 456) == 713 && seenParam == 456, "peer candidates still receive messages after handoff");
     prisma = false; Toggle();
-    auto foreign = ImmCreateContext(); ImmAssociateContext(window, foreign);
+    auto foreign = ImmCreateContext(); ImmAssociateContext(window, foreign); ImmSetOpenStatus(foreign, TRUE);
     prisma = true; SendMessageW(window, WM_NULL, 0, 0);
     auto current = ImmGetContext(window); if (current) ImmReleaseContext(window, current);
     Check(current == foreign, "never replace foreign context");
+    Check(ImmGetOpenStatus(foreign), "foreign context remains open after handoff");
+    ImmAssociateContext(window, original); ImmDestroyContext(foreign);
+    prisma = false; Toggle();
+    foreign = ImmCreateContext(); ImmAssociateContext(window, foreign); ImmSetOpenStatus(foreign, TRUE);
+    Reset(); SendMessageW(window, syncMessage, 0, 0);
+    current = ImmGetContext(window); if (current) ImmReleaseContext(window, current);
+    Check(!Active() && current == foreign && ImmGetOpenStatus(foreign), "ordinary reset does not close or replace a foreign context");
     ImmAssociateContext(window, original); ImmDestroyContext(foreign);
     prisma = false; Toggle(); SendMessageW(window, WM_KILLFOCUS, 0, 0);
     Check(!Active() && panelText.empty(), "focus loss clears mode and panel");
     Toggle(); Toggle(); Check(!Active() && panelText == L"输入法已关闭", "toggle off gives visible status and unhooks");
-    Toggle(); Reset(); SendMessageW(window, syncMessage, 0, 0);
+    if (original) ImmSetOpenStatus(original, TRUE);
+    Toggle();
+    Check(ImmGetOpenStatus(context), "next session reopens selected IME without layout switching");
+    Check(Escape() && !Active() && panelText == L"输入法已关闭", "Esc after input exits fully with visible status");
+    restored = ImmGetContext(window); if (restored) ImmReleaseContext(window, restored);
+    Check(restored == original && (!original || !ImmGetOpenStatus(original)), "gameplay restores original association with IME closed");
+    Check(!SuppressKeyboard() && !BlockNavigation() && !Escape(), "exited mode releases typing and idle Esc passes through");
+    Check(SendMessageW(window, WM_IME_NOTIFY, 0, 789) == 713 && seenParam == 789, "normal exit leaves no subclass intercepting peer messages");
+    Toggle(); SkyrimTextBridge_ResetInputV1(); SendMessageW(window, syncMessage, 0, 0);
     Check(!Active(), "menu/load reset");
     std::atomic<bool> requested{false}, finished{false};
     std::thread request([&] { TextBridge::DirectIme::Toggle(); requested = true; while (!finished) std::this_thread::yield(); });
@@ -87,6 +119,7 @@ int main() {
     Check(attached && !bootstrap.load(), "cross-thread activation installs on owner thread and removes bootstrap hook");
     Toggle();
     Check(!Active(), "cross-thread activation leaves no hook after disable");
+    ImmAssociateContext(window, inherited); ImmDestroyContext(original);
     DestroyWindow(window); Check(!context, "no owned context remains");
     std::cout << checks << " direct IME checks passed (peer subclass and panel are test doubles)\n";
 }
