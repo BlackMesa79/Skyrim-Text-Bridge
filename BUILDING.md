@@ -30,12 +30,12 @@ The default archive path is `build/windows/x64/releasedbg/commonlibsse-ng.lib`, 
 To also check actual Address Library files and runtime queue layouts without starting Skyrim:
 
 ```powershell
-./scripts/Build-Local.ps1 -RuntimeAddressLibrary '<folder containing the 1.5.97, 1.6.1170 and 1.7.104 address files>'
+./scripts/Build-Local.ps1 -RuntimeAddressLibrary '<folder containing the 1.5.97, 1.6.1170, 1.7.99 and 1.7.104 address files>'
 ```
 
 This optional checker uses CommonLib's real address loader and mock runtime memory. It needs no game executable; missing address files fail the check. It does not validate executable hook instructions or in-game IME behavior.
 
-These checks do not launch Skyrim; supported runtime metadata is not a claim of game testing on any of the three runtimes with this experimental binary.
+These checks do not launch Skyrim; supported runtime metadata is not a claim of game testing on any of the four runtimes with this experimental binary. The prior beta.1 was user-tested on 1.6.1170; beta.2 requires a fresh game test.
 
 ## Packaging
 
@@ -43,7 +43,7 @@ These checks do not launch Skyrim; supported runtime metadata is not a claim of 
 ./scripts/Package.ps1 -Release
 ```
 
-Produces `dist/SkyrimTextBridge-0.3.11-beta.1.zip` (exactly the DLL, default INI and one readme.txt containing usage and full license notices) and a separate symbols ZIP. `-Release` chooses the package filename and includes symbols; it does not publish or tag anything. This remains an experimental local test package. Prepare its corresponding source ZIP with `git archive` from the same source commit before distributing it.
+Produces `dist/SkyrimTextBridge-0.3.11-beta.2.zip` (exactly the DLL, default INI and one readme.txt containing usage and full license notices) and a separate symbols ZIP. `-Release` chooses the package filename and includes symbols; it does not publish or tag anything. This remains an experimental local test package. Prepare its corresponding source ZIP with `git archive` from the same source commit before distributing it.
 
 `Sync-Mod.ps1` is an optional local deployment helper. Supply `-Target '<your MO2 mod folder>' -Release`; it refuses to replace a running game's DLL and backs up overwritten files. The folder must already exist. On this branch the default is the separate `36 - SkyrimTextBridge - 1.7.104 Test` mod folder; the stable installation is not replaced. Enable only one Text Bridge package in MO2. Existing user settings can be copied separately if desired.
 

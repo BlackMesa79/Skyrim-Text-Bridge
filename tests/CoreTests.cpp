@@ -14,8 +14,9 @@ int main() {
     using namespace TextBridge;
     Check(SupportedRuntime(1,5,97,0), "SE 1.5.97 allowed");
     Check(SupportedRuntime(1,6,1170,0), "AE 1.6.1170 retained");
+    Check(SupportedRuntime(1,7,99,0), "experimental 1.7.99 allowed");
     Check(SupportedRuntime(1,7,104,0), "experimental 1.7.104 allowed");
-    Check(!SupportedRuntime(1,4,15,0) && !SupportedRuntime(1,6,1179,0) && !SupportedRuntime(1,7,99,0) && !SupportedRuntime(1,7,105,0) && !SupportedRuntime(1,7,104,1), "untargeted runtimes and build variants rejected");
+    Check(!SupportedRuntime(1,4,15,0) && !SupportedRuntime(1,6,1179,0) && !SupportedRuntime(1,7,98,0) && !SupportedRuntime(1,7,100,0) && !SupportedRuntime(1,7,105,0) && !SupportedRuntime(1,7,99,1) && !SupportedRuntime(1,7,104,1), "untargeted runtimes and build variants rejected");
     Check(DecodeUtf16(u"\u4e2d\u6587Ab").size() == 4, "Chinese and ASCII");
     Check(DecodeUtf16(u"\U0001f600")[0] == 0x1F600, "surrogate pair");
     Check(DecodeUtf16(std::u16string{0xD800, u'A', 0xDC00}) == std::vector<std::uint32_t>{65}, "invalid surrogates");

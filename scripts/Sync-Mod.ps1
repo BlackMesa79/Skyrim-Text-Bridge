@@ -1,5 +1,5 @@
 param(
-    [string]$Version = '0.3.11-beta.1',
+    [string]$Version = '0.3.11-beta.2',
     [switch]$Release,
     [string]$Target = 'H:\Games\Dev Skyrim\mods\36 - SkyrimTextBridge - 1.7.104 Test'
 )

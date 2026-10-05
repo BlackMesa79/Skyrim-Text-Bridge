@@ -19,6 +19,7 @@ int wmain(int argc, wchar_t** argv) {
     const std::array fixtures{
         Fixture{{1,5,97,0}, REL::Module::Runtime::SE, L"version-1-5-97-0.bin", 0x380,0x200,0xE8,67315,520856,514178,514705,0xC150B0},
         Fixture{{1,6,1170,0}, REL::Module::Runtime::AE, L"versionlib-1-6-1170-0.bin", 0x380,0x200,0xF0,68617,407374,400327,400863,0xCD8F40},
+        Fixture{{1,7,99,0}, REL::Module::Runtime::AE, L"versionlib-1-7-99-0.bin", 0x558,0x208,0xF0,68617,407374,400327,400863,0xCF9390},
         Fixture{{1,7,104,0}, REL::Module::Runtime::AE, L"versionlib-1-7-104-0.bin", 0x558,0x208,0xF0,68617,407374,400327,400863,0xCF95F0}
     };
     for (const auto& f : fixtures) {
@@ -27,6 +28,11 @@ int wmain(int argc, wchar_t** argv) {
         Check(REL::IDDB::inject((addressRoot/f.file).wstring(), f.version), "load actual runtime address library");
         Check(REL::ID(f.poll).offset()==f.pollOffset, "resolve dispatch relocation");
         Check(REL::ID(f.queue).offset() && REL::ID(f.ui).offset() && REL::ID(f.controlID).offset(), "resolve queue and focus singletons");
+        const auto ae = f.runtime==REL::Module::Runtime::AE;
+        Check(REL::ID(ae ? 82269 : 80244).offset() && REL::ID(ae ? 82270 : 80245).offset() &&
+              REL::ID(ae ? 82256 : 80233).offset(), "resolve Scaleform object reference and invoke functions");
+        Check(REL::ID(ae ? (f.version[1]==7 ? 524270 : 82331) : 80307).offset()!=0,
+              "resolve version-specific Scaleform name validation");
         alignas(16) std::array<std::byte,0x600> bytes{};
         auto& queue = *reinterpret_cast<RE::BSInputEventQueue*>(bytes.data());
         Check(reinterpret_cast<std::byte*>(&queue.GetQueueHead())==bytes.data()+f.head &&

@@ -6,11 +6,11 @@ namespace {
 constexpr auto compatibility = []<std::size_t... I>(std::index_sequence<I...>) {
     using Number = SKSE::PluginDeclaration::VersionNumber;
     return SKSE::PluginDeclaration::RuntimeCompatibility{
-        Number{1,5,97,0}, Number{1,6,1170,0}, Number{1,7,104,0}, (static_cast<void>(I), Number{0})...};
-}(std::make_index_sequence<13>{});
+        Number{1,5,97,0}, Number{1,6,1170,0}, Number{1,7,99,0}, Number{1,7,104,0}, (static_cast<void>(I), Number{0})...};
+}(std::make_index_sequence<12>{});
 }
 SKSEPluginInfo(
-    .Version = {0, 3, 11, 1},
+    .Version = {0, 3, 11, 2},
     .Name = "SkyrimTextBridge",
     .Author = "BlackMesa79",
     .RuntimeCompatibility = compatibility
