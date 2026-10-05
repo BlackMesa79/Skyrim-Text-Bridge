@@ -1,7 +1,7 @@
 param(
-    [string]$Version = '0.3.11-beta.2',
+    [string]$Version = '0.3.11',
     [switch]$Release,
-    [string]$Target = 'H:\Games\Dev Skyrim\mods\36 - SkyrimTextBridge - 1.7.104 Test'
+    [string]$Target = 'H:\Games\Dev Skyrim\mods\36 - SkyrimTextBridge'
 )
 $ErrorActionPreference = 'Stop'
 if (Get-Process SkyrimSE -ErrorAction SilentlyContinue) { throw 'Exit Skyrim before syncing its loaded DLL.' }

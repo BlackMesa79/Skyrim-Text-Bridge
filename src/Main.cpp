@@ -168,7 +168,7 @@ void OnMessage(SKSE::MessagingInterface::Message* m) {
         SKSE::AllocTrampoline(32);
         previousDispatch = SKSE::GetTrampoline().write_call<5>(call, InputHook);
         installed = true;
-        SKSE::log::info("Experimental runtime build 0.3.11-beta.2; CommonLibSSE-NG 10.1.0; input hook installed on {} at {:X}", REL::Module::get().version().string(), call);
+        SKSE::log::info("Text Bridge 0.3.11; CommonLibSSE-NG 10.1.0; input hook installed on {} at {:X}", REL::Module::get().version().string(), call);
         if (auto ui = RE::UI::GetSingleton()) ui->AddEventSink(new MenuEvents);
         SKSE::log::info("Direct IME installed: toggle scan code {}; Prisma native passthrough", TextBridge::Settings::Get().hotkey);
     }
@@ -185,7 +185,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse) {
     const auto runtime=skse->RuntimeVersion();
     SKSE::log::info("Loading Text Bridge on Skyrim {}",runtime.string());
     if (!TextBridge::SupportedRuntime(runtime[0],runtime[1],runtime[2],runtime[3])) {
-        SKSE::log::error("Unsupported Skyrim runtime {}; allowed: 1.5.97, 1.6.1170 and experimental 1.7.99/1.7.104",runtime.string()); return false;
+        SKSE::log::error("Unsupported Skyrim runtime {}; allowed: 1.5.97, 1.6.1170, 1.7.99 and 1.7.104",runtime.string()); return false;
     }
     if (GetModuleHandleW(L"SimpleIME.dll")) {
         SKSE::log::error("Disable SimpleIME before loading Text Bridge"); return false;

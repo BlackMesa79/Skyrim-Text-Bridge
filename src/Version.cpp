@@ -10,7 +10,7 @@ constexpr auto compatibility = []<std::size_t... I>(std::index_sequence<I...>) {
 }(std::make_index_sequence<12>{});
 }
 SKSEPluginInfo(
-    .Version = {0, 3, 11, 2},
+    .Version = {0, 3, 11, 0},
     .Name = "SkyrimTextBridge",
     .Author = "BlackMesa79",
     .RuntimeCompatibility = compatibility
