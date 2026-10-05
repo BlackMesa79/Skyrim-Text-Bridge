@@ -1,6 +1,6 @@
 # Skyrim Text Bridge
 
-**Experimental branch — 0.3.11-beta.1 / 实验分支。** Adds exact Skyrim **1.7.104** admission using CommonLibSSE-NG **10.1.0** and version-aware character queues. Existing 1.5.97 / 1.6.1170 admission is retained. This build has passed offline checks, but none of these runtimes has been game-tested with this new binary yet. The user-tested 0.3.10 stable build remains separate. See [beta notes](release-materials/0.3.11-beta.1/TESTING.md).
+**Experimental branch — 0.3.11-beta.1 / 实验分支。** Adds exact Skyrim **1.7.104** admission using CommonLibSSE-NG **10.1.0** and version-aware character queues. Existing 1.5.97 / 1.6.1170 admission is retained. This build has passed offline checks; on 2026-10-05 the user also confirmed normal operation in the local **1.6.1170** setup. 1.5.97 and 1.7.104 still await game testing, and **1.7.99 is currently rejected**. The user-tested 0.3.10 stable build remains separate. See [beta notes](release-materials/0.3.11-beta.1/TESTING.md).
 
 **1.7.104 requires SKSE 2.3.1, its matching Address Library and a working nonexclusive keyboard patch (Media Keys Fix SKSE or equivalent).** The locally installed Media Keys Fix 1.0.2 advertises 1.7.99; its 1.7.104 operation is still unverified. Do not assume updating Text Bridge also updates its prerequisites. 本实验包先供本地回归测试，待用户确认后再公开发布测试版；请勿同时启用正式版和实验版。
 

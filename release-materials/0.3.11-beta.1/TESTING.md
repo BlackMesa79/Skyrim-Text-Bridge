@@ -2,6 +2,12 @@
 
 Branch: `codex/runtime-1-7-104`. Local testing only; public beta is deferred until the user confirms local regression results. The 0.3.10 stable checkout and deployed DLL are preserved.
 
+## User feedback — 2026-10-05
+
+The user reports that 0.3.11-beta.1 works normally in the local 1.6.1170 setup and all tested features can be used. This confirms the user's local regression test; it does not establish 1.5.97, 1.7.99 or 1.7.104 game compatibility. Public beta publication has not occurred.
+
+1.7.99 is currently rejected by both the explicit runtime guard and SKSE compatibility list. CommonLibSSE-NG 10.1.0 contains 1.7.99 support, with the same new character-pool/queue layout used for 1.7.104, so extending the experiment is feasible. Admission, address/queue validation and game testing for that exact version are still required; the existing ZIP must not be described as 1.7.99-compatible.
+
 ## Changes
 
 - Pin CommonLibSSE-NG 10.1.0 (`39f9d07a6ffabea8fb559eee87ab7d27cd463e8a`) with matching locally compiled SE+AE/non-VR static library, multi-targeting and patch safety.
