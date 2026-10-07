@@ -11,6 +11,7 @@
 #include "AutoInputPolicy.h"
 #include "SkyUiFocus.h"
 #include "GameCharacterQueue.h"
+#include "ImePanel.h"
 namespace {
 using Dispatch = void(RE::BSTEventSource<RE::InputEvent*>*, RE::InputEvent**);
 REL::Relocation<Dispatch> previousDispatch;
@@ -159,6 +160,10 @@ void OnMessage(SKSE::MessagingInterface::Message* m) {
         EnumWindows(FindWindow, 0);
         TextBridge::Meridian::Install();
         TextBridge::SettingsMenu::Install();
+        if (!TextBridge::ImePanel::Install()) {
+            SKSE::log::error("Input disabled: install a compatible SKSE Menu Framework for the ImGui candidate panel");
+            return;
+        }
         // Matches Meridian's current guarded dispatch call site. The 1.7.99/104
         // sites still need game verification; never install if it is not E8.
         const auto call = REL::RelocationID(67315, 68617).address() + 0x7B;
@@ -168,7 +173,7 @@ void OnMessage(SKSE::MessagingInterface::Message* m) {
         SKSE::AllocTrampoline(32);
         previousDispatch = SKSE::GetTrampoline().write_call<5>(call, InputHook);
         installed = true;
-        SKSE::log::info("Text Bridge 0.3.12-beta.1; CommonLibSSE-NG 10.1.0; input hook installed on {} at {:X}", REL::Module::get().version().string(), call);
+        SKSE::log::info("Text Bridge 0.3.12-beta.2; ImGui HUD panel; CommonLibSSE-NG 10.1.0; input hook installed on {} at {:X}", REL::Module::get().version().string(), call);
         if (auto ui = RE::UI::GetSingleton()) ui->AddEventSink(new MenuEvents);
         SKSE::log::info("Direct IME installed: toggle scan code {}; Prisma native passthrough", TextBridge::Settings::Get().hotkey);
     }

@@ -1,26 +1,44 @@
+// Optional development preview. Supply the same ImGui 1.90.8 sources as the
+// framework; not part of the plugin or distributable mod.
+#define TEXTBRIDGE_PANEL_TEST
 #include "../src/ImePanel.cpp"
 #include "../src/Settings.cpp"
+#undef IM_COL32
+#undef IM_COL32_WHITE
+#undef IM_COL32_BLACK
+#undef IM_COL32_BLACK_TRANS
+#include <imgui.h>
 #include <fstream>
-void Render(const wchar_t* text, bool transient, const char* path) {
-    using namespace TextBridge::ImePanel;
-    content = text; brief = transient; scale = 1.5f;
-    int width = Px(Width), height = Px(Height());
-    BITMAPINFO info{}; info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER); info.bmiHeader.biWidth = width; info.bmiHeader.biHeight = -height; info.bmiHeader.biPlanes = 1; info.bmiHeader.biBitCount = 32;
-    void* bits{}; auto dc = CreateCompatibleDC(nullptr); auto bitmap = CreateDIBSection(dc,&info,DIB_RGB_COLORS,&bits,nullptr,0); auto old = SelectObject(dc,bitmap);
-    Surface layered(width,height); RenderAlpha(layered,width,height);
-    auto output=static_cast<unsigned char*>(bits);
-    for (int y=0;y<height;++y) for (int x=0;x<width;++x) {
-        const int i=(y*width+x)*4; const int bg=((x/40+y/40)%2)?95:65;
-        for (int c=0;c<3;++c) output[i+c]=static_cast<unsigned char>(layered.pixels[i+c]+bg*(255-layered.pixels[i+3])/255);
-        output[i+3]=255;
-    }
-    GdiFlush();
-    BITMAPFILEHEADER header{}; header.bfType = 0x4d42; header.bfOffBits = sizeof(header)+sizeof(BITMAPINFOHEADER); header.bfSize = header.bfOffBits + width*height*4;
-    std::ofstream file(path,std::ios::binary); file.write(reinterpret_cast<char*>(&header),sizeof(header)); file.write(reinterpret_cast<char*>(&info.bmiHeader),sizeof(BITMAPINFOHEADER)); file.write(static_cast<char*>(bits),width*height*4);
-    SelectObject(dc,old); DeleteObject(bitmap); DeleteDC(dc);
+namespace TextBridge::ImePanel {
+namespace {
+std::uint64_t TestNow() { return 100; }
+bool TestForeground(HWND) { return true; }
+void* TestResolve(const char*) { return nullptr; }
+ImGuiMCP::ImGuiContext* PreviewContext() { return reinterpret_cast<ImGuiMCP::ImGuiContext*>(ImGui::GetCurrentContext()); }
+ImGuiMCP::ImGuiViewport* PreviewViewport() { return reinterpret_cast<ImGuiMCP::ImGuiViewport*>(ImGui::GetMainViewport()); }
+ImGuiMCP::ImDrawList* PreviewDrawList() { return reinterpret_cast<ImGuiMCP::ImDrawList*>(ImGui::GetForegroundDrawList()); }
+ImGuiMCP::ImFont* PreviewFont() { return reinterpret_cast<ImGuiMCP::ImFont*>(ImGui::GetFont()); }
+const ImGuiMCP::ImFontGlyph* PreviewGlyph(ImGuiMCP::ImFont* font, ImGuiMCP::ImWchar c) { return reinterpret_cast<const ImGuiMCP::ImFontGlyph*>(reinterpret_cast<::ImFont*>(font)->FindGlyphNoFallback(c)); }
+void PreviewFill(ImGuiMCP::ImDrawList* draw, ImGuiMCP::ImVec2 a, ImGuiMCP::ImVec2 b, ImGuiMCP::ImU32 c, float radius, ImGuiMCP::ImDrawFlags flags) { reinterpret_cast<::ImDrawList*>(draw)->AddRectFilled({a.x,a.y},{b.x,b.y},c,radius,flags); }
+void PreviewRect(ImGuiMCP::ImDrawList* draw, ImGuiMCP::ImVec2 a, ImGuiMCP::ImVec2 b, ImGuiMCP::ImU32 c, float radius, ImGuiMCP::ImDrawFlags flags, float thickness) { reinterpret_cast<::ImDrawList*>(draw)->AddRect({a.x,a.y},{b.x,b.y},c,radius,flags,thickness); }
+void PreviewText(ImGuiMCP::ImDrawList* draw, const ImGuiMCP::ImFont* font, float size, ImGuiMCP::ImVec2 pos, ImGuiMCP::ImU32 c, const char* start, const char* end, float wrap, const ImGuiMCP::ImVec4* clip) { reinterpret_cast<::ImDrawList*>(draw)->AddText(reinterpret_cast<const ::ImFont*>(font),size,{pos.x,pos.y},c,start,end,wrap,reinterpret_cast<const ::ImVec4*>(clip)); }
+void PreviewMeasure(ImGuiMCP::ImVec2* out, ImGuiMCP::ImFont* font, float size, float max, float wrap, const char* start, const char* end, const char** remaining) { const auto result=reinterpret_cast<::ImFont*>(font)->CalcTextSizeA(size,max,wrap,start,end,remaining); *out={result.x,result.y}; }
 }
-int main() { auto settings=TextBridge::Settings::Data{}; settings.opacity=.4f; TextBridge::Settings::Set(settings);
-    Render(L"中文输入 · F8 关闭\nshang gu juan zhou\n当前输入法：微软拼音\n  1. 上古卷轴\n> 2. 上古卷轴特别版\n  3. 上古卷轴重制版\n  4. 上古卷轴：天际",false,"build/preview/candidates.bmp");
-    Render(L"英文输入 · F8 关闭\n请在当前输入框打字\n当前输入法：微软拼音\nCtrl + Space 切换中英文",false,"build/preview/ready.bmp");
-    Render(L"输入法已关闭",true,"build/preview/off.bmp");
+}
+int main(int argc,char** argv) {
+    if(argc!=3)return 1;
+    ImGui::CreateContext(); auto& io=ImGui::GetIO(); io.IniFilename=nullptr; io.DisplaySize={1920,1080}; io.DeltaTime=1.f/60;
+    ImFontConfig config; config.OversampleH=1; config.OversampleV=1;
+    static const ::ImWchar ranges[]={0x20,0xFF,0x2000,0x206F,0x3000,0x30FF,0x4E00,0x9FFF,0};
+    if(!io.Fonts->AddFontFromFileTTF(argv[1],24,&config,ranges))return 2;
+    unsigned char* pixels{}; int width{},height{}; io.Fonts->GetTexDataAsRGBA32(&pixels,&width,&height); io.Fonts->SetTexID(reinterpret_cast<::ImTextureID>(1));
+    using namespace TextBridge::ImePanel;
+    backend.context=PreviewContext; backend.viewport=PreviewViewport; backend.drawList=PreviewDrawList; backend.font=PreviewFont; backend.glyph=PreviewGlyph; backend.rect=PreviewRect; backend.fill=PreviewFill; backend.text=PreviewText; backend.measure=PreviewMeasure;
+    TextBridge::Settings::Data value; value.opacity=.55f; value.x=.025f; value.y=.065f; TextBridge::Settings::Set(value);
+    Show(reinterpret_cast<HWND>(1),L"中文输入 · F8 关闭\nshang gu juan zhou\n当前输入法：微软拼音\n  1. 上古卷轴\n> 2. 上古卷轴特别版\n  3. 上古卷轴重制版\n  4. 上古卷轴：天际");
+    ImGui::NewFrame(); TextBridge::ImePanel::Render(); ImGui::Render(); const auto data=ImGui::GetDrawData();
+    std::ofstream file(argv[2],std::ios::binary); auto write=[&](const auto& v){file.write(reinterpret_cast<const char*>(&v),sizeof(v));};
+    write(width);write(height);file.write(reinterpret_cast<const char*>(pixels),width*height*4);write(data->CmdListsCount);
+    for(int i=0;i<data->CmdListsCount;++i){const auto list=data->CmdLists[i];write(list->VtxBuffer.Size);write(list->IdxBuffer.Size);write(list->CmdBuffer.Size);file.write(reinterpret_cast<const char*>(list->VtxBuffer.Data),list->VtxBuffer.Size*sizeof(::ImDrawVert));for(auto index:list->IdxBuffer)write(static_cast<std::uint32_t>(index));for(const auto& cmd:list->CmdBuffer){write(cmd.ClipRect);write(cmd.ElemCount);write(cmd.IdxOffset);write(cmd.VtxOffset);}}
+    ImGui::DestroyContext();
 }

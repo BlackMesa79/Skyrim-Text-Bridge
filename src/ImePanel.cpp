@@ -1,127 +1,153 @@
+#ifndef TEXTBRIDGE_PANEL_TEST
+#include <SKSE/SKSE.h>
+#endif
+namespace RE { class InputEvent; }
 #include "ImePanel.h"
 #include "Settings.h"
-#include <algorithm>
-#include <vector>
+#include "PanelState.h"
+#include <atomic>
+#include <filesystem>
+#include <limits>
+#include "../extern/SKSEMenuFramework/SKSEMenuFramework.h"
+
 namespace TextBridge::ImePanel {
 namespace {
-HWND panel{}; std::wstring content; bool brief{}; float scale = 1.0f;
-bool skipText=false; HDC textMask{};
-COLORREF Color(const std::array<float,3>& c) { return RGB(int(c[0]*255),int(c[1]*255),int(c[2]*255)); }
-constexpr int Width = 380;
-int Px(int value) { return static_cast<int>(value * scale + .5f); }
-std::vector<std::wstring> Lines() {
-    std::vector<std::wstring> lines; size_t start = 0;
-    for (;;) { auto end = content.find(L'\n', start); lines.push_back(content.substr(start, end - start)); if (end == std::wstring::npos) break; start = end + 1; }
-    return lines;
+PanelState state;
+bool installed = false;
+bool warnedFont = false;
+using namespace ImGuiMCP;
+struct Backend {
+    std::int64_t (*registerHud)(void(__stdcall*)()){};
+    ImGuiContext* (*context)(){};
+    ImGuiViewport* (*viewport)(){};
+    ImDrawList* (*drawList)(){};
+    ImFont* (*font)(){};
+    const ImFontGlyph* (*glyph)(ImFont*, ImWchar){};
+    void (*rect)(ImDrawList*, ImVec2, ImVec2, ImU32, float, ImDrawFlags, float){};
+    void (*fill)(ImDrawList*, ImVec2, ImVec2, ImU32, float, ImDrawFlags){};
+    void (*text)(ImDrawList*, const ImFont*, float, ImVec2, ImU32, const char*, const char*, float, const ImVec4*){};
+    void (*measure)(ImVec2*, ImFont*, float, float, float, const char*, const char*, const char**){};
+} backend;
+#ifdef TEXTBRIDGE_PANEL_TEST
+extern void* TestResolve(const char*);
+extern bool TestForeground(HWND);
+extern std::uint64_t TestNow();
+void* Resolve(const char* name) { return TestResolve(name); }
+bool Foreground(HWND owner) { return TestForeground(owner); }
+std::uint64_t Now() { return TestNow(); }
+void Warn(const char*) {}
+#else
+void* Resolve(const char* name) {
+    const auto module = GetModuleHandleW(L"SKSEMenuFramework.dll");
+    return module ? reinterpret_cast<void*>(GetProcAddress(module, name)) : nullptr;
 }
-int Height() { const auto lines = Lines(); return brief ? 62 : 108 + static_cast<int>(lines.size() > 2 ? lines.size() - 2 : 0) * 34; }
-void Fill(HDC dc, RECT rect, COLORREF color) { auto brush = CreateSolidBrush(color); FillRect(dc, &rect, brush); DeleteObject(brush); }
-void Label(HDC dc, std::wstring text, RECT rect, int size, COLORREF color, int weight = FW_NORMAL, UINT flags = DT_LEFT) {
-    if (skipText) return;
-    auto font = CreateFontW(-Px(size),0,0,0,weight,FALSE,FALSE,FALSE,DEFAULT_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Microsoft YaHei UI");
-    auto old = SelectObject(dc, font); SetTextColor(dc, color); SetBkMode(dc, TRANSPARENT);
-    DrawTextW(dc, text.c_str(), static_cast<int>(text.size()), &rect, flags | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-    if (textMask) {
-        auto prior=SelectObject(textMask,font); SetTextColor(textMask,RGB(255,255,255)); SetBkMode(textMask,TRANSPARENT);
-        DrawTextW(textMask,text.c_str(),static_cast<int>(text.size()),&rect,flags | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-        SelectObject(textMask,prior);
+bool Foreground(HWND owner) { return IsWindow(owner) && GetForegroundWindow() == owner && !IsIconic(owner); }
+std::uint64_t Now() { return GetTickCount64(); }
+void Warn(const char* message) { SKSE::log::warn("{}", message); }
+#endif
+template <typename T> bool Bind(T& function, const char* name) {
+    function = reinterpret_cast<T>(Resolve(name)); return function != nullptr;
+}
+std::string Utf8(const std::wstring& text) {
+    const int length = static_cast<int>(std::min<std::size_t>(text.size(), 16384));
+    const auto size = WideCharToMultiByte(CP_UTF8, 0, text.data(), length, nullptr, 0, nullptr, nullptr);
+    std::string result(size, 0);
+    if (size) WideCharToMultiByte(CP_UTF8, 0, text.data(), length, result.data(), size, nullptr, nullptr);
+    return result;
+}
+void __stdcall Render() {
+    const auto panel = state.Read();
+    if (!panel.Visible(Now())) return;
+    if (!Foreground(reinterpret_cast<HWND>(panel.owner))) { state.Hide(); return; }
+    const auto settings = Settings::Get();
+    if (!settings.enabled || !backend.context()) return;
+    const auto viewport = backend.viewport();
+    const auto draw = backend.drawList();
+    const auto font = backend.font();
+    if (!viewport || !draw || !font) return;
+    if (!warnedFont && !backend.glyph(font, 0x4E2D)) {
+        warnedFont = true;
+        Warn("Text Bridge panel: framework font lacks Chinese glyphs; configure EnableChinese=true and a Chinese PrimaryFont in SKSEMenuFramework.ini, then restart");
     }
-    SelectObject(dc, old); DeleteObject(font);
-}
-RECT Box(int x, int y, int right, int bottom) { return {Px(x),Px(y),Px(right),Px(bottom)}; }
-void Paint(HDC dc, RECT rect) {
-    const auto settings=Settings::Get();
-    const COLORREF background=Color(settings.background),gold=Color(settings.accent),white=Color(settings.foreground);
-    constexpr COLORREF border=RGB(71,73,75),muted=RGB(147,153,158);
-    Fill(dc, rect, background);
-    auto pen = CreatePen(PS_SOLID, Px(1), border); auto oldPen = SelectObject(dc, pen); auto oldBrush = SelectObject(dc, GetStockObject(NULL_BRUSH));
-    RoundRect(dc, 0,0,rect.right,rect.bottom,Px(16),Px(16));
-    SelectObject(dc, oldBrush); SelectObject(dc, oldPen); DeleteObject(pen);
-    const auto lines = Lines();
-    auto title = lines.front(); auto separator = title.find(L" ·"); if (separator != std::wstring::npos) title.resize(separator);
-    Fill(dc, Box(18,25,23,30), brief ? muted : gold);
-    Label(dc, title, Box(33,12,Width-100,44), 15, white, FW_MEDIUM);
-    if (!brief) {
-        Fill(dc, Box(Width-82,17,Width-18,39), RGB(43,47,51));
-        Label(dc, Settings::KeyName(settings.hotkey)+L" 关闭", Box(Width-98,17,Width-18,39), 11, muted, FW_NORMAL, DT_CENTER);
-        Fill(dc, Box(18,53,Width-18,54), RGB(52,55,58));
-        if (lines.size() > 1) {
-            const bool idle = lines[1] == L"请在当前输入框打字";
-            Label(dc, idle ? L"就绪 · 在当前输入框开始输入" : lines[1], Box(20,63,Width-20,98), idle ? 14 : 21, idle ? muted : gold);
+    const auto box = FitPanel(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y,
+                              settings.size, settings.x, settings.y, panel);
+    if (box.scale <= 0) return;
+    const auto color = [](const std::array<float, 3>& c, float alpha = 1.f) { return PanelColor(c[0], c[1], c[2], alpha); };
+    const auto foreground = color(settings.foreground), accent = color(settings.accent);
+    const auto muted = PanelColor(.58f, .60f, .62f);
+    auto point = [&](float x, float y) { return ImVec2{box.x + x * box.scale, box.y + y * box.scale}; };
+    auto fill = [&](float x, float y, float right, float bottom, ImU32 c, float radius = 0.f) {
+        backend.fill(draw, point(x, y), point(right, bottom), c, radius * box.scale, 0);
+    };
+    auto label = [&](std::string text, float x, float y, float right, float bottom, float size, ImU32 c, bool center = false) {
+        const float actualSize = size * box.scale, available = (right - x) * box.scale;
+        auto widthOf = [&](const std::string& value) {
+            ImVec2 measured{};
+            backend.measure(&measured, font, actualSize, std::numeric_limits<float>::max(), 0, value.data(), value.data() + value.size(), nullptr);
+            return measured.x;
+        };
+        float width = widthOf(text);
+        if (width > available) {
+            const float ellipsis = widthOf("…");
+            do {
+                if (text.empty()) break;
+                auto end = text.size() - 1;
+                while (end && (static_cast<unsigned char>(text[end]) & 0xC0) == 0x80) --end;
+                text.resize(end); width = widthOf(text);
+            } while (width + ellipsis > available);
+            text += "…"; width += ellipsis;
         }
-        for (size_t i = 2; i < lines.size(); ++i) {
-            auto line = lines[i]; const bool selected = line.starts_with(L"> ");
-            const int y = 104 + static_cast<int>(i - 2) * 34;
-            if (selected) { Fill(dc, Box(12,y,Width-12,y+32), RGB(57,54,45)); Fill(dc, Box(12,y+5,15,y+27), gold); }
-            auto first = line.find_first_not_of(L" >"); if (first != std::wstring::npos) line.erase(0,first);
-            auto dot = line.find(L". ");
-            if (dot != std::wstring::npos && dot <= 2) {
-                Label(dc, line.substr(0,dot), Box(24,y,49,y+32), 13, selected ? gold : muted);
-                Label(dc, line.substr(dot+2), Box(57,y,Width-24,y+32), 17, selected ? gold : white, selected ? FW_MEDIUM : FW_NORMAL);
-            } else Label(dc, line, Box(20,y,Width-20,y+32), 13, muted);
+        const auto pos = point(x, y + (bottom - y - size) * .5f);
+        const ImVec4 clip{box.x + x * box.scale, box.y + y * box.scale, box.x + right * box.scale, box.y + bottom * box.scale};
+        backend.text(draw, font, actualSize, {pos.x + (center ? std::max(0.f, (available - width) * .5f) : 0.f), pos.y},
+                     c, text.data(), text.data() + text.size(), 0, &clip);
+    };
+    const float height = box.height / box.scale;
+    fill(0, 0, 380, height, color(settings.background, settings.opacity), 8);
+    backend.rect(draw, point(0, 0), point(380, height), PanelColor(.28f, .29f, .30f, settings.opacity), 8 * box.scale, 0, box.scale);
+    std::string title = panel.lines.front();
+    if (const auto separator = title.find(" ·"); separator != std::string::npos) title.resize(separator);
+    fill(18, 25, 23, 30, panel.transient ? muted : accent);
+    label(title, 33, 12, panel.transient ? 362 : 280, 44, 15, foreground);
+    if (panel.transient) return;
+    fill(298, 17, 362, 39, PanelColor(.17f, .18f, .20f, settings.opacity), 4);
+    label(Utf8(Settings::KeyName(settings.hotkey)) + " 关闭", 282, 17, 362, 39, 11, muted, true);
+    fill(18, 53, 362, 54, PanelColor(.20f, .22f, .23f, settings.opacity));
+    if (panel.lines.size() > 1) {
+        const bool idle = panel.lines[1] == "请在当前输入框打字";
+        label(idle ? "就绪 · 在当前输入框开始输入" : panel.lines[1], 20, 63, 360, 98, idle ? 14.f : 21.f, idle ? muted : accent);
+    }
+    for (std::size_t i = 2; i < panel.lines.size(); ++i) {
+        auto line = panel.lines[i];
+        const bool selected = line.starts_with("> ");
+        const float y = 104 + float(i - 2) * 34;
+        if (selected) {
+            fill(12, y, 368, y + 32, PanelColor(.22f, .21f, .18f, settings.opacity), 4);
+            fill(12, y + 5, 15, y + 27, accent);
         }
+        if (const auto first = line.find_first_not_of(" >"); first != std::string::npos) line.erase(0, first);
+        const auto dot = line.find(". ");
+        if (dot != std::string::npos && dot <= 2) {
+            label(line.substr(0, dot), 24, y, 49, y + 32, 13, selected ? accent : muted);
+            label(line.substr(dot + 2), 57, y, 356, y + 32, 17, selected ? accent : foreground);
+        } else label(line, 20, y, 360, y + 32, 13, muted);
     }
 }
-struct Surface {
-    HDC dc{}; HBITMAP bitmap{}; HGDIOBJ old{}; unsigned char* pixels{};
-    Surface(int w,int h) {
-        BITMAPINFO info{}; info.bmiHeader.biSize=sizeof(BITMAPINFOHEADER); info.bmiHeader.biWidth=w; info.bmiHeader.biHeight=-h;
-        info.bmiHeader.biPlanes=1; info.bmiHeader.biBitCount=32;
-        dc=CreateCompatibleDC(nullptr); bitmap=CreateDIBSection(dc,&info,DIB_RGB_COLORS,reinterpret_cast<void**>(&pixels),nullptr,0);
-        old=SelectObject(dc,bitmap); if (pixels) memset(pixels,0,w*h*4);
-    }
-    ~Surface() { SelectObject(dc,old); DeleteObject(bitmap); DeleteDC(dc); }
-};
-void RenderAlpha(Surface& result,int w,int h) {
-    Surface base(w,h),mask(w,h);
-    if (!result.pixels || !base.pixels || !mask.pixels) return;
-    skipText=true; Paint(base.dc,{0,0,w,h}); skipText=false;
-    textMask=mask.dc; Paint(result.dc,{0,0,w,h}); textMask=nullptr; GdiFlush();
-    const float opacity=Settings::Get().opacity; const int radius=Px(8);
-    for (int y=0;y<h;++y) for (int x=0;x<w;++x) {
-        const int i=(y*w+x)*4; float coverage=mask.pixels[i]/255.f;
-        float alpha=opacity+(1-opacity)*coverage;
-        const int dx=std::max({radius-x,0,x-(w-1-radius)}),dy=std::max({radius-y,0,y-(h-1-radius)});
-        if (dx*dx+dy*dy>radius*radius) alpha=0;
-        for (int c=0;c<3;++c) result.pixels[i+c]=alpha==0?0:static_cast<unsigned char>(std::clamp(result.pixels[i+c]-base.pixels[i+c]*(1-opacity)*(1-coverage),0.f,255.f));
-        result.pixels[i+3]=static_cast<unsigned char>(alpha*255+.5f);
-    }
 }
-LRESULT CALLBACK Proc(HWND window, UINT message, WPARAM w, LPARAM l) {
-    if (message == WM_NCHITTEST) return HTTRANSPARENT;
-    if (message == WM_MOUSEACTIVATE) return MA_NOACTIVATE;
-    if (message == WM_ERASEBKGND) return 1;
-    if (message == WM_TIMER) { ShowWindow(window, SW_HIDE); KillTimer(window, 1); return 0; }
-    if (message == WM_PAINT) {
-        PAINTSTRUCT paint{}; auto dc = BeginPaint(window, &paint); RECT rect{}; GetClientRect(window, &rect);
-        auto buffer = CreateCompatibleDC(dc); auto bitmap = CreateCompatibleBitmap(dc, rect.right, rect.bottom); auto old = SelectObject(buffer, bitmap);
-        Paint(buffer, rect); BitBlt(dc,0,0,rect.right,rect.bottom,buffer,0,0,SRCCOPY);
-        SelectObject(buffer, old); DeleteObject(bitmap); DeleteDC(buffer); EndPaint(window, &paint); return 0;
-    }
-    if (message == WM_DESTROY) panel = nullptr;
-    return DefWindowProcW(window, message, w, l);
+bool Install() {
+    if (installed) return true;
+    Backend next;
+    const bool complete = Bind(next.registerHud, "RegisterHudElement") && Bind(next.context, "igGetCurrentContext") &&
+        Bind(next.viewport, "igGetMainViewport") && Bind(next.drawList, "igGetForegroundDrawList_Nil") &&
+        Bind(next.font, "igGetFont") && Bind(next.glyph, "ImFont_FindGlyphNoFallback") &&
+        Bind(next.rect, "ImDrawList_AddRect") && Bind(next.fill, "ImDrawList_AddRectFilled") &&
+        Bind(next.text, "ImDrawList_AddText_FontPtr") && Bind(next.measure, "ImFont_CalcTextSizeA");
+    if (!complete) { Warn("Text Bridge requires SKSE Menu Framework with HUD/ImGui exports for its in-game panel; input hook remains disabled"); return false; }
+    backend = next;
+    if (backend.registerHud(Render) < 0) { backend = {}; Warn("Text Bridge HUD registration failed"); return false; }
+    installed = true;
+    return true;
 }
-}
-void Show(HWND owner, const std::wstring& text, bool transient) {
-    if (!IsWindow(panel)) {
-        WNDCLASSW wc{}; wc.lpfnWndProc = Proc; wc.hInstance = GetModuleHandleW(nullptr); wc.lpszClassName = L"SkyrimTextBridge.Status.022"; RegisterClassW(&wc);
-        panel = CreateWindowExW(WS_EX_LAYERED | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT, wc.lpszClassName,L"",WS_POPUP,0,0,Width,100,owner,nullptr,wc.hInstance,nullptr);
-    }
-    if (!panel) return;
-    content = text; brief = transient; KillTimer(panel, 1);
-    RECT game{}; GetWindowRect(owner, &game);
-    MONITORINFO monitor{sizeof(monitor)}; GetMonitorInfoW(MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST), &monitor);
-    const auto settings=Settings::Get();
-    scale = std::clamp(GetDpiForWindow(owner) / 96.0f, 1.0f, 2.5f)*settings.size;
-    scale = std::min(scale, std::min((monitor.rcWork.right-monitor.rcWork.left) / float(Width), (monitor.rcWork.bottom-monitor.rcWork.top) / float(Height())));
-    int width = Px(Width), height = Px(Height());
-    int x=std::max(monitor.rcWork.left,std::min(game.left+LONG(std::max(0L,game.right-game.left-width)*settings.x),monitor.rcWork.right-width));
-    int y=std::max(monitor.rcWork.top,std::min(game.top+LONG(std::max(0L,game.bottom-game.top-height)*settings.y),monitor.rcWork.bottom-height));
-    Surface surface(width,height); RenderAlpha(surface,width,height);
-    POINT destination{x,y},source{}; SIZE size{width,height}; BLENDFUNCTION blend{AC_SRC_OVER,0,255,AC_SRC_ALPHA};
-    UpdateLayeredWindow(panel,nullptr,&destination,&size,surface.dc,&source,0,&blend,ULW_ALPHA);
-    SetWindowPos(panel,HWND_TOPMOST,0,0,0,0,SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-    if (transient) SetTimer(panel,1,1400,nullptr);
-}
-void Hide() { if (IsWindow(panel)) { KillTimer(panel,1); ShowWindow(panel,SW_HIDE); } }
+void Show(HWND owner, const std::wstring& text, bool transient) { state.Show(reinterpret_cast<std::uintptr_t>(owner), Utf8(text), transient, Now()); }
+void Hide() { state.Hide(); }
 }

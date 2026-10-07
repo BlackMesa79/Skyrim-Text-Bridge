@@ -1,6 +1,6 @@
 # Skyrim Text Bridge
 
-**Local test update — 0.3.12-beta.1 / 本地测试更新。** Adds RaceMenu naming/editable-field automatic activation to the optional AutoEnable setting. Requires text-entry permission and a focused editable field; opening the customization menu alone does not activate input. Hidden or disabled ancestors suppress stale focus. Stable 0.3.11 ZIPs remain available; this new behavior needs game validation. See [test notes](release-materials/0.3.12-beta.1/TESTING.md).
+**Local test update — 0.3.12-beta.2 / 本地测试更新。** Candidate/status UI now uses an in-game ImGui HUD callback. **SKSE Menu Framework and a configured Chinese font are required**; local 3.18 exports and existing MiSans configuration were checked. Retains beta.1 RaceMenu automatic activation. The new rendering path, true exclusive fullscreen and RaceMenu naming still need game testing. See [test notes](release-materials/0.3.12-beta.2/TESTING.md). Stable 0.3.11 ZIPs remain available.
 
 **0.3.11 / 正式打包版本。** Uses CommonLibSSE-NG **10.1.0**, V5 Address Library support and version-aware character queues. Exact runtime whitelist: **1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104**. The user confirmed normal local **1.6.1170** operation and approved normal-release packaging on 2026-10-05. 1.5.97 and both 1.7 runtimes still await game testing. See [validation notes](VALIDATION-0.3.11.md).
 
@@ -8,7 +8,7 @@
 
 0.3.10 adds optional automatic activation and a clean Esc exit that returns game input to English. Media Keys Fix SKSE is required for the normal setup. An optional native input-state/reset API is retained for FavoriteWheel; that separate integration still requires its own validation.
 
-A Skyrim SKSE plugin for Chinese IME input, explicit English typing, and keyboard hotkey filtering. Includes an adjustable candidate panel and optional SKSE Menu Framework settings.
+A Skyrim SKSE plugin for Chinese IME input, explicit English typing, and keyboard hotkey filtering. Includes an adjustable candidate panel and SKSE Menu Framework HUD rendering and settings.
 
 **支持 Meridian UI（如 Tailor）、Modex、SkyUI 等界面的输入；兼容 Prisma UI。** 前者通过 F8 调用本模组输入。Prisma UI 由框架自身处理输入，本模组不为它提供输入支持，也不接管它的输入法；兼容共存，不影响其正常输入。
 
@@ -19,7 +19,7 @@ A Skyrim SKSE plugin for Chinese IME input, explicit English typing, and keyboar
 1. 安装与游戏匹配的 SKSE64、Address Library 和 Media Keys Fix SKSE（或等效非独占键盘补丁）；DLL 接受 Skyrim **1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104**，实测状态见上方说明。
 2. 将发行 ZIP 安装到 MO2，禁用 SimpleIME。更新前退出游戏；个人 `SkyrimTextBridge.user.ini` 会保留。
 3. 点击文本框，按 **F8** 开启输入；按 **Ctrl + 空格**切换中英文，再按 F8 关闭。切换语言会取消尚未选定的拼音。
-4. 可选安装 SKSE Menu Framework，在默认 F1 菜单的 **Skyrim Text Bridge → 输入法与面板设置**调整开关、快捷键、自动开启、位置、颜色及背景透明度。
+4. 安装匹配游戏的 SKSE Menu Framework，并配置中文字体（EnableChinese=true 和有效 PrimaryFont）；在默认 F1 菜单的 **Skyrim Text Bridge → 输入法与面板设置**调整开关、快捷键、自动开启、位置、颜色及背景透明度。
 
 自动开启默认关闭。在设置页勾选“文本框聚焦时自动开启”并保存，或在 `SkyrimTextBridge.user.ini` 的 `[Input]` 下设置 `AutoEnable=1`。首次接入范围为 SkyUI 的物品、魔法、容器、交易菜单搜索框，以及 Meridian/Tailor 的可编辑文本框。Modex 保留手动 F8，Prisma 始终避让。按自定义快捷键手动关闭后，当前焦点暂不自动重开；离开再聚焦后恢复。自动开启的会话失焦后结束，换框时清空旧会话的未提交内容。
 
@@ -27,7 +27,7 @@ Automatic activation is optional and off by default. It covers SkyUI item-menu s
 
 输入模式内，**Esc 先取消正在选词的拼音，输入完成后退出模式**。退出的按下和松开不会传入游戏，下次 Esc 恢复界面的正常操作。若刚选定的文字仍待提交，该次 Esc 等待文字送达，再按一次可退出。普通退出、F8 关闭及菜单重置会关闭恢复后的游戏 IME 上下文；下次开启本模组重新启用输入法，所选键盘布局保持不变。Prisma 或其他框架接管时不修改其上下文。退出时仍按住的移动键需松开后重新按下。
 
-游戏使用窗口化或无边框模式。候选面板是独立 Windows 分层窗口，不能保证真正独占全屏时可见；Media Keys Fix 的非独占键盘访问与游戏显示模式是两回事。要可靠支持独占全屏需要游戏内候选绘制，本版本尚未实现。切换菜单、读档、失焦或 Prisma 接管时退出输入模式。
+候选面板已改为游戏内 ImGui 绘制，不再创建桌面悬浮窗口。目标包括窗口化、无边框及独占全屏；真正独占全屏、Alt+Tab 与渲染模组组合仍需游戏验证。面板不抢占焦点、不打开框架窗口、不暂停游戏；Media Keys Fix 的非独占键盘访问仍为输入前置。框架须加载中文字体，缺字可检查日志与框架字体配置。切换菜单、读档、失焦或 Prisma 接管时退出输入模式。
 
 面板显示当前 Windows 输入法名称，并在切换输入法后刷新（同语言配置切换约一秒内更新）。标题中的中/英文是 Text Bridge 的输入模式。读到具体名称时显示“当前输入法：……”；只读到语言信息时显示“键盘语言：……”，不会将语言误标为输入法名称；两者都未取得时显示“当前输入法：未知”。
 
@@ -38,7 +38,7 @@ Automatic activation is optional and off by default. It covers SkyUI item-menu s
 | SkyUI / Modex | **输入支持**：F8 调用本模组，经游戏字符通道输入；SkyUI 指定菜单搜索框可选自动开启，Modex 手动 | 无模组版本白名单 |
 | Prisma UI / Outfit Wheeler | **兼容共存**：使用 Prisma 原生输入，本模组不提供输入支持、不接管 | 仅查询公开 V1 焦点接口以避让，不限制框架发行版本 |
 | Meridian UI / Tailor | **输入支持**：F8 或可选自动开启，经 View/1 与 DOM 提交文字 | 协商 `Meridian.View/1`，不限制框架发行版本 |
-| SKSE Menu Framework | 可选设置页 | 检查所需导出接口，不限制发行版本 |
+| SKSE Menu Framework | 必需：ImGui HUD 面板及设置页，需要中文字体配置 | 检查所需 HUD/ImGui 导出接口；本地检查 3.18，需框架自身匹配游戏 |
 | Skyrim | SKSE / CommonLib 地址与结构 | 严格限制 1.5.97、1.6.1170、1.7.99、1.7.104；未放行其他 1.7.x |
 | Media Keys Fix SKSE | 实际输入前置，提供非独占键盘环境；等效补丁可替代 | 不静态链接其 DLL |
 | SimpleIME | 使用同一输入目标 | 禁止同时启用 |

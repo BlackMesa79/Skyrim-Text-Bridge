@@ -56,6 +56,10 @@ New-Item -ItemType Directory -Path (Join-Path $projectRoot 'build\preview') -For
 if ($LASTEXITCODE) { throw 'Settings checks compilation failed' }
 & "$outputDir\SettingsChecks.exe"
 if ($LASTEXITCODE) { throw 'Settings and alpha checks failed' }
+& cl @common tools/PanelRenderChecks.cpp "/Fe$outputDir\PanelRenderChecks.exe" "/Fo$outputDir\PanelRenderChecks.obj" /link user32.lib /INCREMENTAL:NO
+if ($LASTEXITCODE) { throw 'ImGui panel checks compilation failed' }
+& "$outputDir\PanelRenderChecks.exe"
+if ($LASTEXITCODE) { throw 'ImGui panel render checks failed' }
 & cl @common tools/MeridianAbiCheck.cpp "/Fe$outputDir\MeridianAbiCheck.exe" "/Fo$outputDir\MeridianAbiCheck.obj" /link /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'Meridian ABI check compilation failed' }
 & "$outputDir\MeridianAbiCheck.exe"

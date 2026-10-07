@@ -14,6 +14,7 @@ std::string Utf8(const std::wstring& text) {
 void __stdcall Render() {
     auto value=Settings::Get(); bool changed=false;
     ImGuiMCP::TextUnformatted("Skyrim Text Bridge");
+    ImGuiMCP::TextUnformatted("候选面板现使用游戏内 ImGui HUD 绘制；框架须配置中文字体。");
     changed |= ImGuiMCP::Checkbox("启用模组",&value.enabled);
     changed |= ImGuiMCP::Checkbox("文本框聚焦时自动开启",&value.autoEnable);
     ImGuiMCP::TextUnformatted("可选：SkyUI 搜索框、RaceMenu 命名等文本框及 Meridian/Tailor 文本框。");

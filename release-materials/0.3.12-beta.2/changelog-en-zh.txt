@@ -1,0 +1,3 @@
+0.3.12-beta.2
+Replaced the desktop candidate window with an in-game ImGui HUD panel through SKSE Menu Framework. Keeps panel style settings, input method name and exit notifications, and includes RaceMenu automatic activation. SKSE Menu Framework and a configured Chinese font are now required. Exclusive fullscreen and the new rendering path still need game testing.
+通过 SKSE Menu Framework 将桌面候选窗口替换为游戏内 ImGui HUD 面板，保留样式设置、输入法名称和关闭提示，并包含 RaceMenu 自动开启修复。SKSE Menu Framework 与中文字体配置现为必需前置。独占全屏及新绘制方案仍需游戏实测。
