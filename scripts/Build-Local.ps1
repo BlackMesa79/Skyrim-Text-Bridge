@@ -39,7 +39,7 @@ if ($LASTEXITCODE) { throw 'Core tests failed' }
 if ($LASTEXITCODE) { throw 'Modex guard test compilation failed' }
 & "$outputDir\ModexMenuGuardTests.exe"
 if ($LASTEXITCODE) { throw 'Modex menu-message guard tests failed' }
-& cl @common tools/ScaleformFocusChecks.cpp "/Fe$outputDir\ScaleformFocusChecks.exe" "/Fo$outputDir\ScaleformFocusChecks.obj" /link /INCREMENTAL:NO
+& cl @common tests/FrameworkFocusChecks.cpp "/Fe$outputDir\ScaleformFocusChecks.exe" "/Fo$outputDir\ScaleformFocusChecks.obj" /link /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'Scaleform focus checks compilation failed' }
 & "$outputDir\ScaleformFocusChecks.exe"
 if ($LASTEXITCODE) { throw 'Scaleform focus checks failed' }
@@ -49,8 +49,12 @@ if ($LASTEXITCODE) { throw 'Direct IME harness compilation failed' }
 if ($LASTEXITCODE) { throw 'Direct IME lifecycle tests failed' }
 & cl @common tests/ImeLanguageTests.cpp "/Fe$outputDir\ImeLanguageTests.exe" "/Fo$outputDir\ImeLanguageTests.obj" /link user32.lib imm32.lib ole32.lib oleaut32.lib uuid.lib /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'TSF mode test compilation failed' }
-& "$outputDir\ImeLanguageTests.exe"
+$tsfStatus = Join-Path $outputDir 'tsf-check-status.txt'
+if (Test-Path -LiteralPath $tsfStatus) { Remove-Item -LiteralPath $tsfStatus }
+& "$outputDir\ImeLanguageTests.exe" $tsfStatus
 if ($LASTEXITCODE) { throw 'Real TSF mode tests failed' }
+if ((Get-Content -LiteralPath "$outputDir\tsf-check-status.txt" -Tail 1) -ne 'COMPLETED 11') { throw 'TSF test process exited before all checks completed; inspect build/native/tsf-check-status.txt' }
+Write-Output '11 real isolated TSF mode checks completed (no Sogou or game validation)'
 & cl @common tests/InputMethodNameTests.cpp "/Fe$outputDir\InputMethodNameTests.exe" "/Fo$outputDir\InputMethodNameTests.obj" /link user32.lib imm32.lib ole32.lib oleaut32.lib uuid.lib /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'IME name test compilation failed' }
 & "$outputDir\InputMethodNameTests.exe"

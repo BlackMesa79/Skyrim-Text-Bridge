@@ -1,0 +1,10 @@
+0.3.12-beta.4
+
+Route optional automatic input by UI framework. Discover focused editable Scaleform fields without a menu-name whitelist; keep Meridian detection and Prisma native passthrough.
+可选自动输入改为按 UI 框架处理。Scaleform 不再使用菜单名称白名单，统一识别聚焦可编辑文本框；保留 Meridian 检测和 Prisma 原生输入避让。
+
+Prevent stale fields beneath dialogs/custom input owners from activating. Validate movie/field identity, visibility and text permission; retain F8 for unsupported automatic detection.
+避免上层弹窗或自定义输入界面底下的残留焦点误开启；核对影片/字段身份、可见性及输入许可。无法自动识别的界面保留 F8。
+
+Retain beta.3's Esc, Sogou/TSF and Modex cleanup fixes. Modex 3.0.2 has the same relevant public menu/input lifecycle; independent ImGui interfaces still use manual F8.
+保留 beta.3 的 Esc、搜狗/TSF 与 Modex 清理修复。Modex 3.0.2 相关公开菜单/输入生命周期未改变；独立 ImGui 界面仍手动 F8。

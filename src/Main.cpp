@@ -9,7 +9,7 @@
 #include "RuntimeSupport.h"
 #include "TypingGuard.h"
 #include "AutoInputPolicy.h"
-#include "SkyUiFocus.h"
+#include "FrameworkFocus.h"
 #include "GameCharacterQueue.h"
 #include "ImePanel.h"
 #include "ModexMenuGuard.h"
@@ -44,12 +44,12 @@ void InputHook(RE::BSTEventSource<RE::InputEvent*>* source, RE::InputEvent** eve
         }
     }
     if (!settings.autoEnable) {
-        Meridian::PollAutoFocus(false);
+        FrameworkFocus::Poll(false);
         if (!autoInput.OwnsMode()) autoInput.Reset();
     }
     if (GetForegroundWindow() != gameWindow) { typingGuard.Clear(); ModexMenuGuard::Clear(); }
     if (!settings.enabled || SettingsMenu::Blocking()) {
-        Meridian::PollAutoFocus(false);
+        FrameworkFocus::Poll(false);
         autoInput.Reset();
         typingGuard.Clear();
         if (DirectIme::Active()) DirectIme::Reset();
@@ -74,7 +74,7 @@ void InputHook(RE::BSTEventSource<RE::InputEvent*>* source, RE::InputEvent** eve
     }
     Prisma::Refresh();
     if (Prisma::OwnsInput()) {
-        Meridian::PollAutoFocus(false);
+        FrameworkFocus::Poll(false);
         autoInput.Reset();
         if (toggleDown) SKSE::log::info("IME toggle bypassed: Prisma owns input or its V1 focus API is unavailable");
         typingGuard.Clear();
@@ -97,14 +97,14 @@ void InputHook(RE::BSTEventSource<RE::InputEvent*>* source, RE::InputEvent** eve
         DirectIme::Reset(); Meridian::Cancel(); autoInput.Interrupted();
     }
     const bool autoPermitted = settings.autoEnable && GetForegroundWindow() == gameWindow;
-    Meridian::PollAutoFocus(autoPermitted);
-    // A focused web view takes precedence over any underlying Scaleform menu.
-    const auto target = autoPermitted ? (Meridian::HasFocus() ? Meridian::AutoTarget() : SkyUiFocus::Target()) : std::string{};
+    FrameworkFocus::Poll(autoPermitted);
+    const auto focus = autoPermitted ? FrameworkFocus::Current() : FrameworkFocus::Target{};
+    const auto& target = focus.identity;
     const auto action = autoInput.Update(target, autoPermitted, DirectIme::SuppressKeyboard(), toggleDown || deferAutoStart);
     if (action == AutoInputPolicy::Action::Stop) {
         DirectIme::Reset(); Meridian::Cancel();
     } else if (action == AutoInputPolicy::Action::Start && !DirectIme::Active()) {
-        if (target.starts_with("mer:") && !Meridian::Begin(target)) autoInput.Failed(target);
+        if (!FrameworkFocus::Begin(focus)) autoInput.Failed(target);
         else if (DirectIme::Toggle()) autoInput.Started(target);
         else { Meridian::Cancel(); autoInput.Failed(target); }
     }
@@ -192,14 +192,14 @@ void OnMessage(SKSE::MessagingInterface::Message* m) {
         SKSE::AllocTrampoline(32);
         previousDispatch = SKSE::GetTrampoline().write_call<5>(call, InputHook);
         installed = true;
-        SKSE::log::info("Text Bridge 0.3.12-beta.3; ImGui HUD panel; CommonLibSSE-NG 10.1.0; input hook installed on {} at {:X}", REL::Module::get().version().string(), call);
+        SKSE::log::info("Text Bridge 0.3.12-beta.4; framework focus routing (Scaleform/Meridian, Prisma native); ImGui HUD panel; CommonLibSSE-NG 10.1.0; input hook installed on {} at {:X}", REL::Module::get().version().string(), call);
         if (auto ui = RE::UI::GetSingleton()) ui->AddEventSink(new MenuEvents);
         SKSE::log::info("Direct IME installed: toggle scan code {}; Prisma native passthrough", TextBridge::Settings::Get().hotkey);
     }
     if (m->type == SKSE::MessagingInterface::kPreLoadGame || m->type == SKSE::MessagingInterface::kNewGame) {
         TextBridge::DirectIme::Reset();
         TextBridge::Meridian::Cancel();
-        TextBridge::Meridian::PollAutoFocus(false);
+        TextBridge::FrameworkFocus::Poll(false);
         autoInput.Reset(); typingGuard.Clear();
         modexSession = false; TextBridge::ModexMenuGuard::Clear();
     }

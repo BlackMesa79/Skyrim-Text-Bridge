@@ -1,9 +1,16 @@
 #include "ImeLanguage.h"
 #include <iostream>
 #include <cstdlib>
+#include <fstream>
 unsigned checks{};
-void Check(bool ok, const char* name) { ++checks; if (!ok) { std::cerr << name << '\n'; std::exit(1); } }
-int main() {
+std::ofstream progress;
+void Check(bool ok, const char* name) {
+    ++checks;
+    if (progress.is_open()) { progress << checks << ": " << (ok ? "PASS " : "FAIL ") << name << '\n'; progress.flush(); }
+    if (!ok) { std::cerr << name << '\n'; std::exit(1); }
+}
+int main(int argc, char** argv) {
+    if (argc > 1) progress.open(argv[1], std::ios::trunc);
     using namespace TextBridge::ImeLanguage;
     Check(SUCCEEDED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)), "initialize isolated test apartment");
     ITfThreadMgr* manager{};
@@ -32,4 +39,5 @@ int main() {
     open->Release(); conversion->Release(); compartments->Release();
     manager->Deactivate(); manager->Release(); CoUninitialize();
     std::cout << checks << " real isolated TSF mode checks passed (no Sogou or game validation)\n";
+    if (progress.is_open()) { progress << "COMPLETED " << checks << '\n'; progress.flush(); }
 }

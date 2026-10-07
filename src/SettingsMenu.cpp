@@ -17,8 +17,10 @@ void __stdcall Render() {
     ImGuiMCP::TextUnformatted("候选面板现使用游戏内 ImGui HUD 绘制；框架须配置中文字体。");
     changed |= ImGuiMCP::Checkbox("启用模组",&value.enabled);
     changed |= ImGuiMCP::Checkbox("文本框聚焦时自动开启",&value.autoEnable);
-    ImGuiMCP::TextUnformatted("可选：SkyUI 搜索框、RaceMenu 命名等文本框及 Meridian/Tailor 文本框。");
-    ImGuiMCP::TextUnformatted("Modex 仍用 F8，Prisma 保持原生输入；仅打开捏脸界面不会自动开启。");
+    ImGuiMCP::TextUnformatted("可选：按 UI 框架识别 Scaleform 与 Meridian 的有效文本框，无菜单名称白名单。");
+    ImGuiMCP::TextUnformatted("Scaleform 包含 SkyUI、RaceMenu 等；仅打开菜单或捏脸界面不会自动开启。");
+    ImGuiMCP::TextUnformatted("Prisma 保持原生输入；Modex 等独立 ImGui 界面仍用 F8 手动开启。");
+    ImGuiMCP::TextUnformatted("无法可靠识别的界面保留手动开启；新界面的文字送达仍需游戏测试。");
     ImGuiMCP::TextUnformatted("按输入法快捷键手动关闭后，本输入框暂不自动开启；离开后重新聚焦即可恢复。");
     ImGuiMCP::TextUnformatted("开启后用 Ctrl + Space 切换中英文；再次按输入法快捷键退出。");
     ImGuiMCP::TextUnformatted("Esc：有拼音时先取消，输入完成后退出；退出时关闭游戏输入法，恢复正常操作。");

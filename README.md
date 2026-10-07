@@ -1,6 +1,6 @@
 # Skyrim Text Bridge
 
-**Local test update — 0.3.12-beta.3 / 本地测试更新。** Adds IMM/TSF English-mode cleanup for Sogou-style IMEs, Modex menu Esc/Cancel interception and scoped text-input lease cleanup on normal Modex close. Retains the in-game ImGui HUD and RaceMenu automatic activation. **SKSE Menu Framework and a configured Chinese font are required.** Sogou, Modex and exclusive fullscreen behavior still require game testing. See [test notes](release-materials/0.3.12-beta.3/TESTING.md). Stable 0.3.11 and earlier test ZIPs remain available.
+**Local test update — 0.3.12-beta.4 / 本地测试更新。** Routes optional automatic input by UI framework. Scaleform uses actual focused editable fields across registered open input menus, with no menu-name whitelist. Meridian retains its framework-wide field detection; Prisma retains native input. Independent ImGui interfaces such as Modex remain manual. Keeps beta.3 Esc/TSF fixes and the ImGui HUD. **SKSE Menu Framework and a configured Chinese font are required.** See [test notes](release-materials/0.3.12-beta.4/TESTING.md) and [framework design](FRAMEWORK-INPUT.md); the new binary needs game testing. Stable 0.3.11 and earlier test ZIPs remain available.
 
 **0.3.11 / 正式打包版本。** Uses CommonLibSSE-NG **10.1.0**, V5 Address Library support and version-aware character queues. Exact runtime whitelist: **1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104**. The user confirmed normal local **1.6.1170** operation and approved normal-release packaging on 2026-10-05. 1.5.97 and both 1.7 runtimes still await game testing. See [validation notes](VALIDATION-0.3.11.md).
 
@@ -21,9 +21,9 @@ A Skyrim SKSE plugin for Chinese IME input, explicit English typing, and keyboar
 3. 点击文本框，按 **F8** 开启输入；按 **Ctrl + 空格**切换中英文，再按 F8 关闭。切换语言会取消尚未选定的拼音。
 4. 安装匹配游戏的 SKSE Menu Framework，并配置中文字体（EnableChinese=true 和有效 PrimaryFont）；在默认 F1 菜单的 **Skyrim Text Bridge → 输入法与面板设置**调整开关、快捷键、自动开启、位置、颜色及背景透明度。
 
-自动开启默认关闭。在设置页勾选“文本框聚焦时自动开启”并保存，或在 `SkyrimTextBridge.user.ini` 的 `[Input]` 下设置 `AutoEnable=1`。首次接入范围为 SkyUI 的物品、魔法、容器、交易菜单搜索框，以及 Meridian/Tailor 的可编辑文本框。Modex 保留手动 F8，Prisma 始终避让。按自定义快捷键手动关闭后，当前焦点暂不自动重开；离开再聚焦后恢复。自动开启的会话失焦后结束，换框时清空旧会话的未提交内容。
+自动开启默认关闭。在设置页勾选“文本框聚焦时自动开启”并保存，或在 `SkyrimTextBridge.user.ini` 的 `[Input]` 下设置 `AutoEnable=1`。按 UI 框架识别：Scaleform 不再限定菜单名称，而是检查已打开的最上层输入菜单、实际可编辑焦点与可见性，覆盖符合条件的 SkyUI、RaceMenu 及其他 Scaleform 界面；Meridian/Tailor 沿用框架级文本框检测。Modex 等独立 ImGui 界面保留手动 F8，Prisma 始终避让。按自定义快捷键手动关闭后，当前焦点暂不自动重开；离开再聚焦后恢复。自动开启的会话失焦后结束，换框时清空旧会话的未提交内容。新界面的文字提交仍需实测，识别焦点不等于所有界面已经完整兼容。
 
-Automatic activation is optional and off by default. It covers SkyUI item-menu searches and Meridian/Tailor text fields. Manual off is respected until focus leaves and returns. Modex remains manual; Prisma retains native input. Automatic activation was user-tested in SkyUI and Tailor on 0.3.9; the user has also confirmed the improved 0.3.10 Esc exit in the current 1.6.1170 setup.
+Automatic activation is optional and off by default. Scaleform now discovers focused editable fields by framework capability, not menu names; Meridian/Tailor keeps its framework field observer. Upper dialogs/custom input owners prevent activation of stale fields underneath. Manual off is respected until focus leaves and returns. Modex and other independent ImGui interfaces remain manual; Prisma retains native input. Earlier automatic activation was user-tested in SkyUI and Tailor; generic Scaleform detection and new fields still need game testing.
 
 输入模式内，**Esc 先取消正在选词的拼音，输入完成后退出模式**。退出的按下和松开不会传入游戏，下次 Esc 恢复界面的正常操作。若刚选定的文字仍待提交，该次 Esc 等待文字送达，再按一次可退出。普通退出、F8 关闭及菜单重置会关闭恢复后的游戏 IME 上下文；下次开启本模组重新启用输入法，所选键盘布局保持不变。Prisma 或其他框架接管时不修改其上下文。退出时仍按住的移动键需松开后重新按下。
 
@@ -35,7 +35,8 @@ Automatic activation is optional and off by default. It covers SkyUI item-menu s
 
 | 组件 | 接入方式 | 版本检查 |
 | --- | --- | --- |
-| SkyUI / Modex | **输入支持**：F8 调用本模组，经游戏字符通道输入；SkyUI 指定菜单搜索框可选自动开启，Modex 手动 | 无模组版本白名单 |
+| Scaleform（SkyUI、RaceMenu 等） | **输入支持**：经游戏字符通道输入；有效可编辑焦点可选自动开启，未识别字段手动 F8 | 无菜单名称白名单；新增字段的文字送达需实测 |
+| Modex / 独立 ImGui | Modex **输入支持**：F8 手动，经游戏字符通道输入；保留 Esc/关闭清理 | Modex 3.0.2 相关公开 IMenu 路径未变；其他独立 ImGui 不自动认定为兼容 |
 | Prisma UI / Outfit Wheeler | **兼容共存**：使用 Prisma 原生输入，本模组不提供输入支持、不接管 | 仅查询公开 V1 焦点接口以避让，不限制框架发行版本 |
 | Meridian UI / Tailor | **输入支持**：F8 或可选自动开启，经 View/1 与 DOM 提交文字 | 协商 `Meridian.View/1`，不限制框架发行版本 |
 | SKSE Menu Framework | 必需：ImGui HUD 面板及设置页，需要中文字体配置 | 检查所需 HUD/ImGui 导出接口；本地检查 3.18，需框架自身匹配游戏 |
@@ -53,7 +54,7 @@ F8 输入模式中，普通键的按下、持续和松开事件不会送入下�
 
 鼠标与退格、Enter、Tab、方向键、Home/End、Page Up/Down、Delete 保留；选词期间这些编辑键由输入法使用。绑定在编辑键上的其他热键仍可能触发。独立轮询键盘、较早的输入钩子不保证能被拦截。Prisma 原生输入不应用此过滤。
 
-自动开启仅覆盖上述焦点信号明确的界面，不自动识别所有文本框，并排除密码、只读和禁用字段。非选词期间允许 Ctrl+A/C/X/V 通过，具体编辑操作由目标界面实现。部分 IME 不提供 IMM 候选列表；其他键盘布局及死键组合仍待验证。
+自动开启要求框架提供可靠焦点信号，不自动识别所有文本框，排除密码、只读、隐藏和禁用字段。Scaleform 同时要求游戏文本输入许可，不能仅凭残留的许可计数开启；未知自定义渲染器不回退到其底下的字段。非选词期间允许 Ctrl+A/C/X/V 通过，具体编辑操作由目标界面实现。部分 IME 不提供 IMM 候选列表；其他键盘布局及死键组合仍待验证。
 
 ## Build / 开发
 

@@ -1,0 +1,19 @@
+# UI framework input detection / UI 框架输入检测
+
+`FrameworkFocus` selects the input owner and backend. Prisma's cached public V1 focus signal has priority and returns native ownership with no automatic target. A focused Meridian view owns the next route even when it has no editable field. Scaleform is considered only when neither owns input. Adding a new framework requires a focus/commit adapter here rather than menu-name checks in the main input hook.
+`FrameworkFocus` 统一选择输入归属和后端。Prisma 的公开 V1 焦点缓存拥有最高优先级，仅标记原生输入，不提供自动开启目标。Meridian 已聚焦视图即使没有可编辑框也占有下一优先级；两者都不占有输入时才检测 Scaleform。以后增加框架应在这里接入焦点/提交适配器，避免在主输入钩子内增加模组菜单名称判断。
+
+Scaleform takes a locked snapshot of the active menu stack and retained movie/menu references, then releases the engine lock before invoking the fixed `Selection.getFocus` or `_global.Selection.getFocus` method. Menu names are copied from the engine registry solely as identity data; there is no allowlist of names or game-specific field paths. The highest-depth input owner wins, with stack order resolving equal depths. Cursor/gameplay/debug overlays without modal/menu/custom ownership are skipped. A higher owner without a supported movie/field blocks the underlying field.
+Scaleform 对实际打开菜单栈及持有引用的菜单/影片做加锁快照，释放游戏锁后才调用固定的 `Selection.getFocus` 或 `_global.Selection.getFocus`。从游戏注册表复制菜单名称仅用于身份标识，不使用菜单白名单或预置游戏文本框路径。输入归属优先采用最高深度，相同深度按菜单栈顺序选择；没有模态/菜单/自定义输入归属的光标、游戏和调试覆盖层跳过。上层归属者没有支持的影片/字段时阻止识别底下的字段。
+
+A valid automatic Scaleform target requires positive game text-input permission, visible menus/movie, `type=input`, nonempty bounded focus path, and no explicitly password/readOnly/disabled or false editable/enabled/visible flags on the field or its ancestors. Menu ownership and the current movie are checked again after ActionScript queries; field identity includes the movie instance. Field names are never evaluated as script or logged as entered text. This is AS2/Selection capability detection; unsupported focus APIs and custom renderers remain manual.
+自动 Scaleform 目标要求正值的游戏文本输入许可、菜单/影片可见、`type=input`、非空且有长度限制的焦点路径，以及字段/祖先没有明确的密码、只读、禁用或不可编辑/不可见标记。ActionScript 查询后再次核对当前菜单归属和影片实例；身份包括具体影片实例。字段名不作为脚本执行，也不会作为用户输入内容记录。这是 AS2/Selection 能力检测；未提供该接口或自定义渲染器继续手动开启。
+
+Meridian's existing View/1 and DOM observer detects editable fields across its views, including Tailor, without recognizing individual mods. The same adapter validates field identity and submits committed Unicode. Missing focus is never interpreted as permission to type into an underlying field.
+Meridian 沿用 View/1 与 DOM 观察器，覆盖其视图中的可编辑框（包括 Tailor），不逐个识别模组。同一适配器验证字段身份并提交 Unicode；没有文本焦点不会被当作向底下界面输入的许可。
+
+Independent ImGui contexts do not expose a universal process-wide text-focus query. Reading SKSE Menu Framework's IO would describe its own context, not Modex's; context-layout guesses or changes to a foreign context are unsuitable for a general adapter. Modex's existing public IMenu guards are retained for Esc/close cleanup, but are not treated as evidence of a specific editable field. Modex therefore remains F8/manual. A future ImGui framework adapter needs a versioned public text-focus/commit API or an explicit client report with field identity and lifecycle information.
+独立 ImGui 上下文没有进程级的通用文本焦点查询。读取 SKSE Menu Framework 的 IO 得到的是它自己的上下文，不能代表 Modex；猜测上下文布局或修改外来上下文不适合作为通用方案。保留 Modex 现有公开 IMenu Esc/关闭清理适配，但不把它当成具体文本框的焦点证据，所以 Modex 继续手动 F8。未来 ImGui 框架适配需要有版本的公开文本焦点/提交接口，或包含字段身份与生命周期的显式客户端报告。
+
+Automatic activation is still optional and off by default. Existing manual-off suppression, pointer-transition cleanup, composition/result queues, typing guard, native ownership and four-runtime admission remain. Detecting a field does not establish end-to-end compatibility with every custom editor. Keep F8 as a fallback and validate actual text delivery and exit for newly detected menus.
+自动开启仍为可选设置，默认关闭。保留手动关闭抑制、鼠标换框清理、拼音/结果队列、热键拦截、原生输入归属及四版本准入。检测到文本框不代表已经确认所有自定义编辑器的完整兼容性；保留 F8 后备方式，并对新识别界面实测文字送达和退出。
