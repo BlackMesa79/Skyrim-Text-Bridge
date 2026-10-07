@@ -1,6 +1,6 @@
 # Skyrim Text Bridge
 
-**Local test update — 0.3.12-beta.2 / 本地测试更新。** Candidate/status UI now uses an in-game ImGui HUD callback. **SKSE Menu Framework and a configured Chinese font are required**; local 3.18 exports and existing MiSans configuration were checked. Retains beta.1 RaceMenu automatic activation. The new rendering path, true exclusive fullscreen and RaceMenu naming still need game testing. See [test notes](release-materials/0.3.12-beta.2/TESTING.md). Stable 0.3.11 ZIPs remain available.
+**Local test update — 0.3.12-beta.3 / 本地测试更新。** Adds IMM/TSF English-mode cleanup for Sogou-style IMEs, Modex menu Esc/Cancel interception and scoped text-input lease cleanup on normal Modex close. Retains the in-game ImGui HUD and RaceMenu automatic activation. **SKSE Menu Framework and a configured Chinese font are required.** Sogou, Modex and exclusive fullscreen behavior still require game testing. See [test notes](release-materials/0.3.12-beta.3/TESTING.md). Stable 0.3.11 and earlier test ZIPs remain available.
 
 **0.3.11 / 正式打包版本。** Uses CommonLibSSE-NG **10.1.0**, V5 Address Library support and version-aware character queues. Exact runtime whitelist: **1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104**. The user confirmed normal local **1.6.1170** operation and approved normal-release packaging on 2026-10-05. 1.5.97 and both 1.7 runtimes still await game testing. See [validation notes](VALIDATION-0.3.11.md).
 

@@ -5,16 +5,20 @@
 #include <iostream>
 #include <cstdlib>
 #include <thread>
-namespace { bool prisma = false; unsigned checks = 0, forwarded = 0; std::wstring panelText; LPARAM seenParam{}; }
+namespace { bool prisma = false; unsigned checks = 0, forwarded = 0, escapeForwarded = 0; std::wstring panelText; LPARAM seenParam{}; }
 namespace TextBridge::Prisma { bool OwnsInput() { return prisma; } void Relinquish() { prisma = true; } }
 namespace TextBridge::ImePanel { void Show(HWND, const std::wstring& text, bool) { panelText = text; } void Hide() { panelText.clear(); } }
 LRESULT CALLBACK Peer(HWND window, UINT message, WPARAM w, LPARAM l, UINT_PTR, DWORD_PTR) {
     if (message == WM_IME_NOTIFY) { ++forwarded; seenParam = l; return 713; }
+    if ((message == WM_KEYDOWN || message == WM_KEYUP) && w == VK_ESCAPE) ++escapeForwarded;
     return DefSubclassProc(window, message, w, l);
 }
 void Check(bool ok, const char* label) { ++checks; if (!ok) { std::cerr << "FAIL: " << label << '\n'; std::exit(1); } }
 int main() {
     using namespace TextBridge::DirectIme;
+    const DWORD native = IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE | IME_CMODE_SYMBOL | IME_CMODE_ROMAN;
+    Check(TextBridge::ImeLanguage::Conversion(native,true) == IME_CMODE_ROMAN, "English clears native/fullwidth/symbol while preserving unrelated conversion flags");
+    Check(TextBridge::ImeLanguage::Conversion(IME_CMODE_ROMAN,false) == (IME_CMODE_NATIVE | IME_CMODE_ROMAN), "next native session can reopen after Sogou retained English mode");
     WNDCLASSW wc{}; wc.lpfnWndProc = DefWindowProcW; wc.hInstance = GetModuleHandleW(nullptr); wc.lpszClassName = L"TextBridgeDirectImeTest";
     RegisterClassW(&wc);
     auto window = CreateWindowW(wc.lpszClassName,L"",WS_OVERLAPPED,0,0,200,100,nullptr,nullptr,wc.hInstance,nullptr);
@@ -30,6 +34,10 @@ int main() {
     Check(original != nullptr, "create known game context for exit-state checks");
     ImmAssociateContext(window, original);
     Check(Toggle() && attached && context, "lazy attach on window thread");
+    Check(tsfModeChanges == 1 && !tsfEnglish, "activation requests native mode for TSF-backed IME");
+    SendMessageW(window, WM_KEYDOWN, VK_ESCAPE, 0);
+    SendMessageW(window, WM_KEYUP, VK_ESCAPE, 0);
+    Check(!escapeForwarded && SuppressKeyboard(), "Windows Esc pair stays local; game dispatcher owns action");
     Check(SuppressKeyboard() && !composing, "suppress text before STARTCOMPOSITION");
     std::uint32_t clientHotkey=0;
     Check(SkyrimTextBridge_QueryInputV1(1,&clientHotkey)==7 && clientHotkey==66, "native client sees actual hotkey and active state");
@@ -74,10 +82,12 @@ int main() {
     Check(first.size() == 1 && first[0] == 0x4e2d, "bounded Unicode commit drain");
     Check(!Escape() && enabled && !text.empty(), "Esc waits for committed text instead of discarding it");
     if (original) ImmSetOpenStatus(original, TRUE);
+    auto changesBeforeHandoff = tsfModeChanges;
     prisma = true; SendMessageW(window, WM_NULL, 0, 0);
     auto restored = ImmGetContext(window); if (restored) ImmReleaseContext(window, restored);
     Check(!Active() && restored == original && text.empty(), "Prisma handoff fully unhooks and restores");
     Check(!original || ImmGetOpenStatus(original), "Prisma handoff preserves original context Chinese state");
+    Check(tsfModeChanges == changesBeforeHandoff, "Prisma handoff never writes TSF mode");
     Check(SendMessageW(window, WM_IME_NOTIFY, 0, 456) == 713 && seenParam == 456, "peer candidates still receive messages after handoff");
     prisma = false; Toggle();
     auto foreign = ImmCreateContext(); ImmAssociateContext(window, foreign); ImmSetOpenStatus(foreign, TRUE);
@@ -88,9 +98,11 @@ int main() {
     ImmAssociateContext(window, original); ImmDestroyContext(foreign);
     prisma = false; Toggle();
     foreign = ImmCreateContext(); ImmAssociateContext(window, foreign); ImmSetOpenStatus(foreign, TRUE);
+    changesBeforeHandoff = tsfModeChanges;
     Reset(); SendMessageW(window, syncMessage, 0, 0);
     current = ImmGetContext(window); if (current) ImmReleaseContext(window, current);
     Check(!Active() && current == foreign && ImmGetOpenStatus(foreign), "ordinary reset does not close or replace a foreign context");
+    Check(tsfModeChanges == changesBeforeHandoff, "foreign context reset never writes thread conversion mode");
     ImmAssociateContext(window, original); ImmDestroyContext(foreign);
     prisma = false; Toggle(); SendMessageW(window, WM_KILLFOCUS, 0, 0);
     Check(!Active() && panelText.empty(), "focus loss clears mode and panel");
@@ -99,10 +111,18 @@ int main() {
     Toggle();
     Check(ImmGetOpenStatus(context), "next session reopens selected IME without layout switching");
     Check(Escape() && !Active() && panelText == L"输入法已关闭", "Esc after input exits fully with visible status");
+    Check(tsfEnglish, "completed Esc requests TSF English mode as well as IMM close");
     restored = ImmGetContext(window); if (restored) ImmReleaseContext(window, restored);
     Check(restored == original && (!original || !ImmGetOpenStatus(original)), "gameplay restores original association with IME closed");
     Check(!SuppressKeyboard() && !BlockNavigation() && !Escape(), "exited mode releases typing and idle Esc passes through");
     Check(SendMessageW(window, WM_IME_NOTIFY, 0, 789) == 713 && seenParam == 789, "normal exit leaves no subclass intercepting peer messages");
+    SendMessageW(window, WM_KEYDOWN, VK_ESCAPE, 0);
+    SendMessageW(window, WM_KEYUP, VK_ESCAPE, 0);
+    Check(escapeForwarded == 2, "next ordinary Windows Esc pair works after exit");
+    Toggle(); auto beforeBackground = tsfModeChanges;
+    testForeground = false; SendMessageW(window, WM_KILLFOCUS, 0, 0);
+    Check(!Active() && tsfModeChanges == beforeBackground, "Alt+Tab never changes another app's TSF mode");
+    testForeground = true;
     Toggle(); SkyrimTextBridge_ResetInputV1(); SendMessageW(window, syncMessage, 0, 0);
     Check(!Active(), "menu/load reset");
     std::atomic<bool> requested{false}, finished{false};

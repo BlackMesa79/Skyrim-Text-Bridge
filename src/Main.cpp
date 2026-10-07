@@ -12,12 +12,14 @@
 #include "SkyUiFocus.h"
 #include "GameCharacterQueue.h"
 #include "ImePanel.h"
+#include "ModexMenuGuard.h"
 namespace {
 using Dispatch = void(RE::BSTEventSource<RE::InputEvent*>*, RE::InputEvent**);
 REL::Relocation<Dispatch> previousDispatch;
 HWND gameWindow{}; bool installed = false;
 TextBridge::TypingGuard typingGuard;
 TextBridge::AutoInputPolicy autoInput;
+bool modexSession = false;
 BOOL CALLBACK FindWindow(HWND window, LPARAM) {
     DWORD process{}; GetWindowThreadProcessId(window, &process);
     wchar_t name[80]{}; GetClassNameW(window, name, 80);
@@ -34,16 +36,24 @@ void InputHook(RE::BSTEventSource<RE::InputEvent*>* source, RE::InputEvent** eve
         }
     const auto settings=Settings::Get();
     const unsigned hotkey=settings.hotkey;
+    ModexMenuGuard::Refresh();
+    if (modexSession) {
+        auto ui = RE::UI::GetSingleton();
+        if (!ui || !ui->IsMenuOpen(ModexMenuGuard::MenuName)) {
+            DirectIme::Reset(); modexSession = false;
+        }
+    }
     if (!settings.autoEnable) {
         Meridian::PollAutoFocus(false);
         if (!autoInput.OwnsMode()) autoInput.Reset();
     }
-    if (GetForegroundWindow() != gameWindow) typingGuard.Clear();
+    if (GetForegroundWindow() != gameWindow) { typingGuard.Clear(); ModexMenuGuard::Clear(); }
     if (!settings.enabled || SettingsMenu::Blocking()) {
         Meridian::PollAutoFocus(false);
         autoInput.Reset();
         typingGuard.Clear();
         if (DirectIme::Active()) DirectIme::Reset();
+        modexSession = false; ModexMenuGuard::Clear();
         if (Meridian::Session()) Meridian::Cancel();
         previousDispatch(source,events); return;
     }
@@ -58,7 +68,8 @@ void InputHook(RE::BSTEventSource<RE::InputEvent*>* source, RE::InputEvent** eve
     if (!settings.autoEnable && !autoInput.OwnsMode() && !DirectIme::Active() && !Meridian::Session() && !toggleDown && !typingGuard.Pending()) {
         for (auto e = events ? *events : nullptr; e; e=e->next)
             if (auto b=e->AsButtonEvent(); b && b->GetDevice()==RE::INPUT_DEVICE::kKeyboard)
-                typingGuard.Filter(b->GetIDCode(),b->IsUp(),false);
+                { typingGuard.Filter(b->GetIDCode(),b->IsUp(),false);
+                  if (b->GetIDCode() == 0x01) ModexMenuGuard::ObserveEscape(b->IsUp(), false); }
         previousDispatch(source, events); return;
     }
     Prisma::Refresh();
@@ -67,6 +78,7 @@ void InputHook(RE::BSTEventSource<RE::InputEvent*>* source, RE::InputEvent** eve
         autoInput.Reset();
         if (toggleDown) SKSE::log::info("IME toggle bypassed: Prisma owns input or its V1 focus API is unavailable");
         typingGuard.Clear();
+        modexSession = false; ModexMenuGuard::Clear();
         if (DirectIme::Active()) DirectIme::Reset();
         if (Meridian::Session()) Meridian::Cancel();
         previousDispatch(source, events); return;
@@ -104,6 +116,8 @@ void InputHook(RE::BSTEventSource<RE::InputEvent*>* source, RE::InputEvent** eve
         const auto scan = b ? b->GetIDCode() : 0;
         const bool keyboard = b && b->GetDevice() == RE::INPUT_DEVICE::kKeyboard;
         const bool escape = keyboard && scan == 0x01 && (wasDirect || DirectIme::SuppressKeyboard());
+        // IMM teardown may re-enter UI message delivery before Escape returns.
+        if (escape && b->IsDown()) ModexMenuGuard::ObserveEscape(false, true);
         if (escape && b->IsDown() && DirectIme::Escape()) {
             Meridian::Cancel();
             if (autoPermitted) autoInput.Manual(target, false);
@@ -116,6 +130,8 @@ void InputHook(RE::BSTEventSource<RE::InputEvent*>* source, RE::InputEvent** eve
             }
             // Focus loss may already have closed an active automatic session this frame.
             const bool on = wasDirect && !DirectIme::SuppressKeyboard() ? false : DirectIme::Toggle();
+            auto ui = RE::UI::GetSingleton();
+            modexSession = on && ui && ui->IsMenuOpen(ModexMenuGuard::MenuName);
             if (!on) Meridian::Cancel();
             if (autoPermitted) autoInput.Manual(target, on);
             SKSE::log::info("Direct IME {}", on ? "enabled" : "disabled");
@@ -126,6 +142,7 @@ void InputHook(RE::BSTEventSource<RE::InputEvent*>* source, RE::InputEvent** eve
         const bool shortcut=EditingShortcut(scan,(GetAsyncKeyState(VK_CONTROL)&0x8000)!=0);
         const bool consume = toggle || escape || language || (suppress && ((!EditingKey(scan) && !shortcut) || DirectIme::BlockNavigation()));
         const bool drop = (keyboard && typingGuard.Filter(scan,b->IsUp(),consume)) || (suppress && e->AsCharEvent());
+        if (keyboard && scan == 0x01) ModexMenuGuard::ObserveEscape(b->IsUp(), drop);
         if (!drop) { *tail = e; tail = &e->next; }
         e = next;
     }
@@ -142,7 +159,9 @@ void InputHook(RE::BSTEventSource<RE::InputEvent*>* source, RE::InputEvent** eve
     for (auto [node, next] : links) node->next = next;
 }
 class MenuEvents : public RE::BSTEventSink<RE::MenuOpenCloseEvent> {
-    RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent*, RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override {
+    RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent* event, RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override {
+        TextBridge::ModexMenuGuard::Refresh();
+        if (event && event->menuName == TextBridge::ModexMenuGuard::MenuName && !event->opening) modexSession = false;
         TextBridge::DirectIme::Reset();
         TextBridge::Meridian::Cancel();
         autoInput.Interrupted();
@@ -173,7 +192,7 @@ void OnMessage(SKSE::MessagingInterface::Message* m) {
         SKSE::AllocTrampoline(32);
         previousDispatch = SKSE::GetTrampoline().write_call<5>(call, InputHook);
         installed = true;
-        SKSE::log::info("Text Bridge 0.3.12-beta.2; ImGui HUD panel; CommonLibSSE-NG 10.1.0; input hook installed on {} at {:X}", REL::Module::get().version().string(), call);
+        SKSE::log::info("Text Bridge 0.3.12-beta.3; ImGui HUD panel; CommonLibSSE-NG 10.1.0; input hook installed on {} at {:X}", REL::Module::get().version().string(), call);
         if (auto ui = RE::UI::GetSingleton()) ui->AddEventSink(new MenuEvents);
         SKSE::log::info("Direct IME installed: toggle scan code {}; Prisma native passthrough", TextBridge::Settings::Get().hotkey);
     }
@@ -182,6 +201,7 @@ void OnMessage(SKSE::MessagingInterface::Message* m) {
         TextBridge::Meridian::Cancel();
         TextBridge::Meridian::PollAutoFocus(false);
         autoInput.Reset(); typingGuard.Clear();
+        modexSession = false; TextBridge::ModexMenuGuard::Clear();
     }
 }
 }

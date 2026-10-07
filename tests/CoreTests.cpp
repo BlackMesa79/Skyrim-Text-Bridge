@@ -2,6 +2,7 @@
 #include "AutoInputPolicy.h"
 #include "BridgeCore.h"
 #include "RuntimeSupport.h"
+#include "EscapeFence.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -52,6 +53,17 @@ int main() {
     Check(CompositionStillActive(false, 2), "pending character prevents premature submission");
     Check(CompositionStillActive(true, -1) && !CompositionStillActive(false, -1), "IMM error preserves event state");
     TextBridge::TypingGuard guard;
+    EscapeFence fence;
+    fence.Observe(false, true, 100);
+    Check(fence.Blocks(101), "exit Esc owns delayed menu Cancel");
+    fence.Observe(true, true, 110);
+    Check(fence.Blocks(150) && !fence.Blocks(211), "released Esc tail expires without another keyboard event");
+    fence.Observe(false, true, 300);
+    Check(!fence.Blocks(2300), "missing release cannot leave Cancel blocked forever");
+    fence.Observe(false, true, 2400); fence.Observe(true, true, 2410); fence.Observe(false, false, 2420);
+    Check(!fence.Blocks(2421), "second ordinary Esc clears tail immediately");
+    fence.Observe(false, true, 2500); fence.Clear();
+    Check(!fence.Blocks(2501), "load/focus reset clears Esc owner");
     Check(guard.Filter(0x1e,false,true), "typing consumes hotkey press");
     Check(guard.Filter(0x1e,false,false), "held key stays suppressed after exit");
     Check(guard.Filter(0x1e,true,false) && !guard.Pending(), "release after exit is consumed");

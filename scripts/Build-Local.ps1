@@ -35,6 +35,10 @@ $common = @('/nologo','/std:c++latest','/utf-8','/EHsc','/MD','/O2','/Zi','/FS',
 if ($LASTEXITCODE) { throw 'Core test compilation failed' }
 & "$outputDir\BridgeCoreTests.exe"
 if ($LASTEXITCODE) { throw 'Core tests failed' }
+& cl @common tests/ModexMenuGuardTests.cpp "/Fe$outputDir\ModexMenuGuardTests.exe" "/Fo$outputDir\ModexMenuGuardTests.obj" /link user32.lib /INCREMENTAL:NO
+if ($LASTEXITCODE) { throw 'Modex guard test compilation failed' }
+& "$outputDir\ModexMenuGuardTests.exe"
+if ($LASTEXITCODE) { throw 'Modex menu-message guard tests failed' }
 & cl @common tools/ScaleformFocusChecks.cpp "/Fe$outputDir\ScaleformFocusChecks.exe" "/Fo$outputDir\ScaleformFocusChecks.obj" /link /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'Scaleform focus checks compilation failed' }
 & "$outputDir\ScaleformFocusChecks.exe"
@@ -43,6 +47,10 @@ if ($LASTEXITCODE) { throw 'Scaleform focus checks failed' }
 if ($LASTEXITCODE) { throw 'Direct IME harness compilation failed' }
 & "$outputDir\DirectImeHarness.exe"
 if ($LASTEXITCODE) { throw 'Direct IME lifecycle tests failed' }
+& cl @common tests/ImeLanguageTests.cpp "/Fe$outputDir\ImeLanguageTests.exe" "/Fo$outputDir\ImeLanguageTests.obj" /link user32.lib imm32.lib ole32.lib oleaut32.lib uuid.lib /INCREMENTAL:NO
+if ($LASTEXITCODE) { throw 'TSF mode test compilation failed' }
+& "$outputDir\ImeLanguageTests.exe"
+if ($LASTEXITCODE) { throw 'Real TSF mode tests failed' }
 & cl @common tests/InputMethodNameTests.cpp "/Fe$outputDir\InputMethodNameTests.exe" "/Fo$outputDir\InputMethodNameTests.obj" /link user32.lib imm32.lib ole32.lib oleaut32.lib uuid.lib /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'IME name test compilation failed' }
 & "$outputDir\InputMethodNameTests.exe"

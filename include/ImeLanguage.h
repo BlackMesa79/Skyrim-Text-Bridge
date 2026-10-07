@@ -1,0 +1,50 @@
+#pragma once
+#include <Windows.h>
+#include <imm.h>
+#include <msctf.h>
+namespace TextBridge::ImeLanguage {
+inline DWORD Conversion(DWORD current, bool english) {
+    return english ? current & ~(IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE | IME_CMODE_SYMBOL) : current | IME_CMODE_NATIVE;
+}
+// Use the existing window-thread TSF manager. Do not Activate/Deactivate it,
+// select another keyboard profile, or acquire another UI's document focus.
+inline void SetTsfMode(bool english) {
+    using GetManager = HRESULT(WINAPI*)(ITfThreadMgr**);
+    auto module = GetModuleHandleW(L"msctf.dll");
+    auto get = module ? reinterpret_cast<GetManager>(GetProcAddress(module, "TF_GetThreadMgr")) : nullptr;
+    ITfThreadMgr* manager{};
+    if (!get || FAILED(get(&manager)) || !manager) return;
+    ITfClientId* clients{}; ITfCompartmentMgr* compartments{};
+    // Stable application identity, used solely for writing thread compartments.
+    constexpr GUID identity{0x701f23a1,0x72d5,0x4680,{0x97,0x72,0x32,0x7f,0x5c,0xa7,0x41,0x91}};
+    TfClientId client{};
+    if (SUCCEEDED(manager->QueryInterface(IID_PPV_ARGS(&clients))) &&
+        SUCCEEDED(clients->GetClientId(identity, &client)) &&
+        SUCCEEDED(manager->QueryInterface(IID_PPV_ARGS(&compartments)))) {
+        ITfCompartment* value{};
+        if (SUCCEEDED(compartments->GetCompartment(GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION, &value))) {
+            VARIANT mode{};
+            if (SUCCEEDED(value->GetValue(&mode)) && mode.vt == VT_I4) {
+                mode.lVal = static_cast<LONG>(Conversion(static_cast<DWORD>(mode.lVal), english));
+                value->SetValue(client, &mode);
+            }
+            VariantClear(&mode); value->Release();
+        }
+        value = nullptr;
+        if (SUCCEEDED(compartments->GetCompartment(GUID_COMPARTMENT_KEYBOARD_OPENCLOSE, &value))) {
+            VARIANT open{}; open.vt = VT_I4; open.lVal = english ? 0 : 1;
+            value->SetValue(client, &open); value->Release();
+        }
+    }
+    if (compartments) compartments->Release();
+    if (clients) clients->Release();
+    manager->Release();
+}
+inline void SetImmMode(HIMC context, bool english) {
+    if (!context) return;
+    DWORD conversion{}, sentence{};
+    if (ImmGetConversionStatus(context, &conversion, &sentence))
+        ImmSetConversionStatus(context, Conversion(conversion, english), sentence);
+    ImmSetOpenStatus(context, english ? FALSE : TRUE);
+}
+}

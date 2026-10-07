@@ -4,6 +4,7 @@
 #include "ImePanel.h"
 #include "Settings.h"
 #include "InputMethodName.h"
+#include "ImeLanguage.h"
 #include <imm.h>
 #include <commctrl.h>
 #include <atomic>
@@ -28,6 +29,13 @@ char16_t highSurrogate{};
 bool detaching = false;
 std::wstring inputMethodName;
 ULONGLONG nameCheckedAt{};
+#ifdef TEXTBRIDGE_IME_TEST
+unsigned tsfModeChanges{};
+bool tsfEnglish{};
+void SetThreadMode(bool value) { ++tsfModeChanges; tsfEnglish = value; }
+#else
+void SetThreadMode(bool value) { ImeLanguage::SetTsfMode(value); }
+#endif
 #ifdef TEXTBRIDGE_IME_TEST
 std::wstring testInputMethodName = L"测试输入法";
 std::wstring ReadInputMethodName() { return InputMethodName::Label(testInputMethodName); }
@@ -103,25 +111,33 @@ void Detach(bool tip = false) {
     enabled = false; composing = false; highSurrogate = 0; Clear();
     english = false; appliedEnglish = false; cancelComposition = false;
     inputMethodName.clear(); nameCheckedAt = 0;
+    bool switchGameplay = false;
     const bool owned = attached.exchange(false);
     if (owned) {
         auto current = ImmGetContext(hwnd); if (current) ImmReleaseContext(hwnd, current);
         if (current == context) {
             ImmNotifyIME(context, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
-            if (!Prisma::OwnsInput()) ImmSetOpenStatus(context, FALSE);
+            if (!Prisma::OwnsInput()) ImeLanguage::SetImmMode(context, true);
             ImmAssociateContext(hwnd, saved);
             // The original game context may still be in Chinese mode. Restore
             // its association but leave gameplay keys outside IME composition.
             // Never alter the context being handed to Prisma or a foreign owner.
             if (saved && !Prisma::OwnsInput()) {
                 ImmNotifyIME(saved, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
-                ImmSetOpenStatus(saved, FALSE);
+                ImeLanguage::SetImmMode(saved, true);
             }
+            // Sogou and other TSF-backed IMEs may retain native conversion mode
+            // after IMM open-status changes. Never write a background/foreign
+            // thread's language state or the state being handed to Prisma.
+            switchGameplay = Foreground() && !Prisma::OwnsInput();
         }
         saved = nullptr;
     }
     if (subclassed.exchange(false)) RemoveWindowSubclass(hwnd, Subclass, subclassId);
     if (context) { ImmDestroyContext(context); context = nullptr; }
+    // Context destruction can notify a TSF-backed IME too. Write its final
+    // gameplay mode only after the old association is completely gone.
+    if (switchGameplay && Foreground() && !Prisma::OwnsInput()) SetThreadMode(true);
     if (tip && Foreground() && !Prisma::OwnsInput()) ImePanel::Show(hwnd, L"输入法已关闭", true);
     else ImePanel::Hide();
     detaching = false;
@@ -135,7 +151,8 @@ void Sync() {
         attached = true;
         saved = ImmAssociateContext(hwnd, context);
         appliedEnglish = english.load();
-        ImmSetOpenStatus(context, !appliedEnglish);
+        ImeLanguage::SetImmMode(context, appliedEnglish);
+        SetThreadMode(appliedEnglish);
         UpdatePanel();
     }
     if (cancelComposition.exchange(false)) {
@@ -147,7 +164,8 @@ void Sync() {
         ImmNotifyIME(context, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
         composing = false; highSurrogate = 0;
         appliedEnglish = english.load();
-        ImmSetOpenStatus(context, !appliedEnglish);
+        ImeLanguage::SetImmMode(context, appliedEnglish);
+        SetThreadMode(appliedEnglish);
         UpdatePanel();
     }
     else if (nameChanged && attached) UpdatePanel();
@@ -161,6 +179,10 @@ LRESULT CALLBACK Subclass(HWND window, UINT message, WPARAM w, LPARAM l, UINT_PT
         Detach(); return DefSubclassProc(window, message, w, l);
     }
     if (attached) {
+        // Scaleform-backed menus can receive Windows keys independently of the
+        // filtered game event list. The game dispatch owns Esc's action.
+        if ((message == WM_KEYDOWN || message == WM_KEYUP || message == WM_SYSKEYDOWN || message == WM_SYSKEYUP) && w == VK_ESCAPE) return 0;
+        if (message == WM_CHAR && w == VK_ESCAPE) return 0;
         if (message == WM_INPUTLANGCHANGE) {
             const auto result = DefSubclassProc(window, message, w, l);
             if (attached && Allowed()) { RefreshInputMethodName(true); UpdatePanel(); }

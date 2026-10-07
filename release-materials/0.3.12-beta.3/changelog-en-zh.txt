@@ -1,0 +1,10 @@
+0.3.12-beta.3
+
+Improve English-mode cleanup after typing for TSF-backed IMEs such as Sogou Pinyin; keep the selected input method and reopen native input for the next session.
+加强搜狗拼音等 TSF 输入法退出后的英文状态清理，保留当前输入法，下次开启时恢复中文输入。
+
+Keep the typing-session Esc local in Modex's menu Cancel/Scaleform paths; repair a tracked Modex text-input lease left behind on normal close, including balanced reopen behavior.
+拦截 Modex 菜单 Cancel/Scaleform 路径中属于输入状态的 Esc；正常关闭时清理已跟踪到的 Modex 文本输入计数，并保持重新打开后的配对。
+
+Retain the ImGui candidate panel, RaceMenu auto activation, Prisma passthrough and four-runtime whitelist. This is a local test build; Sogou and Modex still need in-game confirmation.
+保留 ImGui 候选面板、RaceMenu 自动开启、Prisma 避让和四版本白名单。这是本地测试版，搜狗与 Modex 效果仍需游戏确认。
