@@ -1,5 +1,7 @@
 # Skyrim Text Bridge
 
+**Local test update — 0.3.12-beta.1 / 本地测试更新。** Adds RaceMenu naming/editable-field automatic activation to the optional AutoEnable setting. Requires text-entry permission and a focused editable field; opening the customization menu alone does not activate input. Hidden or disabled ancestors suppress stale focus. Stable 0.3.11 ZIPs remain available; this new behavior needs game validation. See [test notes](release-materials/0.3.12-beta.1/TESTING.md).
+
 **0.3.11 / 正式打包版本。** Uses CommonLibSSE-NG **10.1.0**, V5 Address Library support and version-aware character queues. Exact runtime whitelist: **1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104**. The user confirmed normal local **1.6.1170** operation and approved normal-release packaging on 2026-10-05. 1.5.97 and both 1.7 runtimes still await game testing. See [validation notes](VALIDATION-0.3.11.md).
 
 **1.7.104 requires SKSE 2.3.1, its matching Address Library and a working nonexclusive keyboard patch (Media Keys Fix SKSE or equivalent).** The locally installed Media Keys Fix 1.0.2 advertises 1.7.99; its 1.7.104 operation is still unverified. Do not assume updating Text Bridge also updates its prerequisites. 已按用户要求打包为 0.3.11 正式版；1.7.x 仍待玩家实测反馈。请勿同时启用多个 Text Bridge 版本。
@@ -25,7 +27,7 @@ Automatic activation is optional and off by default. It covers SkyUI item-menu s
 
 输入模式内，**Esc 先取消正在选词的拼音，输入完成后退出模式**。退出的按下和松开不会传入游戏，下次 Esc 恢复界面的正常操作。若刚选定的文字仍待提交，该次 Esc 等待文字送达，再按一次可退出。普通退出、F8 关闭及菜单重置会关闭恢复后的游戏 IME 上下文；下次开启本模组重新启用输入法，所选键盘布局保持不变。Prisma 或其他框架接管时不修改其上下文。退出时仍按住的移动键需松开后重新按下。
 
-游戏使用窗口化或无边框模式。切换菜单、读档、失焦或 Prisma 接管时退出输入模式。
+游戏使用窗口化或无边框模式。候选面板是独立 Windows 分层窗口，不能保证真正独占全屏时可见；Media Keys Fix 的非独占键盘访问与游戏显示模式是两回事。要可靠支持独占全屏需要游戏内候选绘制，本版本尚未实现。切换菜单、读档、失焦或 Prisma 接管时退出输入模式。
 
 面板显示当前 Windows 输入法名称，并在切换输入法后刷新（同语言配置切换约一秒内更新）。标题中的中/英文是 Text Bridge 的输入模式。读到具体名称时显示“当前输入法：……”；只读到语言信息时显示“键盘语言：……”，不会将语言误标为输入法名称；两者都未取得时显示“当前输入法：未知”。
 

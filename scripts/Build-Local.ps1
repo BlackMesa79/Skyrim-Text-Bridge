@@ -35,6 +35,10 @@ $common = @('/nologo','/std:c++latest','/utf-8','/EHsc','/MD','/O2','/Zi','/FS',
 if ($LASTEXITCODE) { throw 'Core test compilation failed' }
 & "$outputDir\BridgeCoreTests.exe"
 if ($LASTEXITCODE) { throw 'Core tests failed' }
+& cl @common tools/ScaleformFocusChecks.cpp "/Fe$outputDir\ScaleformFocusChecks.exe" "/Fo$outputDir\ScaleformFocusChecks.obj" /link /INCREMENTAL:NO
+if ($LASTEXITCODE) { throw 'Scaleform focus checks compilation failed' }
+& "$outputDir\ScaleformFocusChecks.exe"
+if ($LASTEXITCODE) { throw 'Scaleform focus checks failed' }
 & cl @common tests/DirectImeHarness.cpp "/Fe$outputDir\DirectImeHarness.exe" "/Fo$outputDir\DirectImeHarness.obj" /link user32.lib imm32.lib comctl32.lib ole32.lib oleaut32.lib uuid.lib /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'Direct IME harness compilation failed' }
 & "$outputDir\DirectImeHarness.exe"

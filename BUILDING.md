@@ -43,7 +43,7 @@ These checks do not launch Skyrim; supported runtime metadata is not a claim of 
 ./scripts/Package.ps1 -Release
 ```
 
-Produces `dist/SkyrimTextBridge-0.3.11.zip` (exactly the DLL, default INI and one readme.txt containing usage and full license notices) and a separate symbols ZIP. `-Release` chooses the package filename and includes symbols; it does not publish or tag anything. The user approved normal-release packaging after local 1.6.1170 testing. 1.7.x remains pending in-game validation. Prepare its corresponding source ZIP with `git archive` from the same source commit before distributing it.
+Produces `dist/SkyrimTextBridge-0.3.12-beta.1.zip` (exactly the DLL, default INI and one readme.txt containing usage and full license notices) and a separate symbols ZIP. `-Release` chooses the package filename and includes symbols; it does not publish or tag anything. This branch adds a RaceMenu focus-scanner fixture (15 assertions) and local test behavior; the previous 0.3.11 stable ZIP remains available. RaceMenu automatic activation and 1.7.x remain pending in-game validation. Prepare its corresponding source ZIP with `git archive` from the same source commit before distributing it.
 
 `Sync-Mod.ps1` is an optional local deployment helper. Supply `-Target '<your MO2 mod folder>' -Release`; it refuses to replace a running game's DLL and backs up overwritten files. The folder must already exist. The default is the developer local `36 - SkyrimTextBridge` mod folder; replacements are backed up. Older release ZIPs are retained. Enable only one Text Bridge package in MO2. Existing user settings can be copied separately if desired.
 

@@ -168,7 +168,7 @@ void OnMessage(SKSE::MessagingInterface::Message* m) {
         SKSE::AllocTrampoline(32);
         previousDispatch = SKSE::GetTrampoline().write_call<5>(call, InputHook);
         installed = true;
-        SKSE::log::info("Text Bridge 0.3.11; CommonLibSSE-NG 10.1.0; input hook installed on {} at {:X}", REL::Module::get().version().string(), call);
+        SKSE::log::info("Text Bridge 0.3.12-beta.1; CommonLibSSE-NG 10.1.0; input hook installed on {} at {:X}", REL::Module::get().version().string(), call);
         if (auto ui = RE::UI::GetSingleton()) ui->AddEventSink(new MenuEvents);
         SKSE::log::info("Direct IME installed: toggle scan code {}; Prisma native passthrough", TextBridge::Settings::Get().hotkey);
     }
