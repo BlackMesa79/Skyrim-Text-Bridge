@@ -15,8 +15,6 @@ ImGuiViewport view{};
 struct TextCommand { std::string text; ImU32 color; ImVec4 clip; float size; ImVec2 position; };
 std::vector<TextCommand> texts;
 std::vector<ImU32> backgrounds;
-unsigned images{}, loads{}, disposals{};
-std::string loadedPath;
 std::int64_t Register(void(__stdcall* render)()) { if (registerFails) return -1; ++registrations; callback = render; return 0; }
 ImGuiContext* Context() { return hasContext ? reinterpret_cast<ImGuiContext*>(1) : nullptr; }
 ImGuiViewport* Viewport() { return &view; }
@@ -28,9 +26,6 @@ void Fill(ImDrawList*, ImVec2, ImVec2, ImU32 color, float, ImDrawFlags) { backgr
 void Text(ImDrawList*, const ImFont*, float size, ImVec2 position, ImU32 color, const char* start, const char* end, float, const ImVec4* clip) {
     texts.push_back({std::string(start, end), color, *clip, size, position});
 }
-ImTextureID LoadTexture(const char* path, ImVec2*) { ++loads; loadedPath = path; return reinterpret_cast<ImTextureID>(5); }
-void DisposeTexture(const char*) { ++disposals; }
-void Image(ImDrawList*, ImTextureID, ImVec2, ImVec2, ImVec2, ImVec2, ImU32) { ++images; }
 void Measure(ImVec2* out, ImFont*, float size, float, float, const char* start, const char* end, const char**) {
     unsigned points{}; for (auto p = start; p != end; ++p) if ((static_cast<unsigned char>(*p) & 0xC0) != 0x80) ++points;
     *out = {points * size * .7f, size};
@@ -43,7 +38,6 @@ void* TestResolve(const char* name) {
     EXPORT("igGetFont", Font); EXPORT("ImFont_FindGlyphNoFallback", Glyph);
     EXPORT("ImDrawList_AddRect", Rect); EXPORT("ImDrawList_AddRectFilled", Fill);
     EXPORT("ImDrawList_AddText_FontPtr", Text); EXPORT("ImFont_CalcTextSizeA", Measure);
-    EXPORT("LoadTexture", LoadTexture); EXPORT("DisposeTexture", DisposeTexture); EXPORT("ImDrawList_AddImage", Image);
 #undef EXPORT
     return nullptr;
 }
@@ -93,12 +87,6 @@ int main() {
     Show(owner, L"中文输入\n测试"); focused = false; frame(); focused = true; frame();
     check(texts.empty(), "focus loss removes stale display even after return");
     Show(owner, L"中文输入\n测试"); hasContext = false; frame(); check(texts.empty(), "framework not initialized safely skips drawing"); hasContext = true;
-    Show(owner, L"中文输入\n哈哈\n当前输入法：微软拼音\n> 1. 😂\n  2. 👩‍💻"); frame();
-    check(images == 2 && loads == 2, "supplementary emoji uses real Windows raster and public image export");
-    check(!std::filesystem::exists(std::filesystem::u8path(loadedPath)), "candidate raster temporary file removed after public texture load");
-    frame(); check(loads == 2 && images == 4, "unchanged emoji reuses bounded texture cache");
-    Hide(); for (unsigned i = 0; i < 4; ++i) frame();
-    check(disposals == 2 && rasterCache.empty(), "hidden panel retires textures after submitted frames");
     Show(owner, L"中文输入\n测试");
     value = Settings::Data{}; value.enabled = false; Settings::Set(value); frame(); check(texts.empty(), "disabled mod does not render"); Settings::Set({});
     PanelState shared;

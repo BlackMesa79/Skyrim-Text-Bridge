@@ -1,0 +1,7 @@
+0.3.12-beta.8
+
+Exclude the console from automatic IME activation, including stale fields underneath. Manual F8 activation remains available.
+控制台不再自动开启输入法，也不会误触发底下残留焦点的输入框；保留 F8 手动开启。
+
+Remove experimental emoji rendering. Keep framework-font Chinese/English display, larger compact candidate text and direct English typing.
+移除实验性 Emoji 补绘，保留框架字体的中英文显示、更大更紧凑的候选文字与直接英文输入。

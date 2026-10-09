@@ -68,23 +68,7 @@ New-Item -ItemType Directory -Path (Join-Path $projectRoot 'build\preview') -For
 if ($LASTEXITCODE) { throw 'Settings checks compilation failed' }
 & "$outputDir\SettingsChecks.exe"
 if ($LASTEXITCODE) { throw 'Settings and alpha checks failed' }
-& cl @common /DTEXTBRIDGE_RASTER_TEST /LD tools/RasterLoadProbe.cpp src/PanelTextRaster.cpp "/Fe$outputDir\RasterLoadProbe.dll" "/Fo$outputDir\\" /link user32.lib ole32.lib dwrite.lib d2d1.lib d3d11.lib dxgi.lib windowscodecs.lib /INCREMENTAL:NO
-if ($LASTEXITCODE) { throw 'Raster lifecycle DLL compilation failed' }
-& cl @common tools/RasterLoadChecks.cpp "/Fe$outputDir\RasterLoadChecks.exe" "/Fo$outputDir\RasterLoadChecks.obj" /link /INCREMENTAL:NO
-if ($LASTEXITCODE) { throw 'Raster lifecycle checker compilation failed' }
-$rasterCheck = Start-Process -FilePath "$outputDir\RasterLoadChecks.exe" -ArgumentList ('"' + "$outputDir\RasterLoadProbe.dll" + '"') -PassThru -WindowStyle Hidden -RedirectStandardOutput "$outputDir\raster-load-checks.txt" -RedirectStandardError "$outputDir\raster-load-errors.txt"
-if (!$rasterCheck.WaitForExit(30000)) {
-    # Only our isolated regression process may be stopped; never the game.
-    $rasterCheck.Kill()
-    throw 'Raster DLL lifecycle checks timed out (possible loader-lock deadlock)'
-}
-Get-Content -LiteralPath "$outputDir\raster-load-checks.txt"
-if ($rasterCheck.ExitCode -ne 0) { Get-Content -LiteralPath "$outputDir\raster-load-errors.txt"; throw 'Raster DLL lifecycle checks failed' }
-& cl @common tools/PanelTextRasterChecks.cpp src/PanelTextRaster.cpp "/Fe$outputDir\PanelTextRasterChecks.exe" "/Fo$outputDir\\" /link user32.lib ole32.lib dwrite.lib d2d1.lib d3d11.lib dxgi.lib windowscodecs.lib /INCREMENTAL:NO
-if ($LASTEXITCODE) { throw 'System font raster checks compilation failed' }
-& "$outputDir\PanelTextRasterChecks.exe"
-if ($LASTEXITCODE) { throw 'System font raster checks failed' }
-& cl @common tools/PanelRenderChecks.cpp src/PanelTextRaster.cpp "/Fe$outputDir\PanelRenderChecks.exe" "/Fo$outputDir\\" /link user32.lib ole32.lib dwrite.lib d2d1.lib d3d11.lib dxgi.lib windowscodecs.lib /INCREMENTAL:NO
+& cl @common tools/PanelRenderChecks.cpp "/Fe$outputDir\PanelRenderChecks.exe" "/Fo$outputDir\PanelRenderChecks.obj" /link user32.lib /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'ImGui panel checks compilation failed' }
 & "$outputDir\PanelRenderChecks.exe"
 if ($LASTEXITCODE) { throw 'ImGui panel render checks failed' }
@@ -98,7 +82,7 @@ $sources += @('spdlog.cpp','stdout_sinks.cpp','color_sinks.cpp','file_sinks.cpp'
 & cl @common @pluginFlags /c /MP @sources "/Fo$outputDir\\"
 if ($LASTEXITCODE) { throw 'Plugin compilation failed' }
 $objects = @($sources | ForEach-Object { Join-Path $outputDir ([IO.Path]::GetFileNameWithoutExtension($_) + '.obj') })
-& link /NOLOGO /DLL /DEBUG /INCREMENTAL:NO "/OUT:$outputDir\SkyrimTextBridge.dll" @objects $CommonLibArchive user32.lib gdi32.lib imm32.lib comctl32.lib ole32.lib oleaut32.lib uuid.lib shell32.lib advapi32.lib version.lib d3d11.lib dxgi.lib d3dcompiler.lib dbghelp.lib bcrypt.lib dwrite.lib d2d1.lib windowscodecs.lib
+& link /NOLOGO /DLL /DEBUG /INCREMENTAL:NO "/OUT:$outputDir\SkyrimTextBridge.dll" @objects $CommonLibArchive user32.lib gdi32.lib imm32.lib comctl32.lib ole32.lib oleaut32.lib uuid.lib shell32.lib advapi32.lib version.lib d3d11.lib dxgi.lib d3dcompiler.lib dbghelp.lib bcrypt.lib
 if ($LASTEXITCODE) { throw 'Plugin link failed' }
 if ($RuntimeAddressLibrary) {
     & cl @common @pluginFlags /DENABLE_COMMONLIBSSE_TESTING tools/RuntimeQueueChecks.cpp "/Fe$outputDir\RuntimeQueueChecks.exe" "/Fo$outputDir\RuntimeQueueChecks.obj" /link $CommonLibArchive @($objects | Where-Object { [IO.Path]::GetFileName($_) -in @('spdlog.obj','stdout_sinks.obj','color_sinks.obj','file_sinks.obj','async.obj','cfg.obj') }) user32.lib ole32.lib shell32.lib advapi32.lib version.lib d3d11.lib dxgi.lib d3dcompiler.lib dbghelp.lib bcrypt.lib /INCREMENTAL:NO

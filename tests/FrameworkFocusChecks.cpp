@@ -45,7 +45,7 @@ struct GFxMovieView {
     }
 };
 struct IMenu {
-    enum class Context { kNone, kGameplay, kCursor, kDebugOverlay, kMenuMode, kItemMenu };
+    enum class Context { kNone, kGameplay, kCursor, kDebugOverlay, kMenuMode, kItemMenu, kConsole };
     struct Input { Context value = Context::kMenuMode; Context get() const { return value; } } inputContext;
     bool onStack = true, usesMenu = true, modal = false, custom = false;
     bool pauses = false, inventory = false, application = false, always = false, assignCursor = false, saving = false;
@@ -212,6 +212,33 @@ int main() {
     ui.visible = true;
     auto target = FrameworkFocus::Current();
     check(target.backend == Backend::Scaleform && target.identity == custom && FrameworkFocus::Begin(target), "router starts generic Scaleform field");
+    auto console = std::make_shared<RE::IMenu>(); console->uiMovie = movie;
+    console->inputContext.value = RE::IMenu::Context::kConsole;
+    console->usesMenu = false; console->pauses = console->always = console->saving = true;
+    console->depthPriority = 12; ui.Add("Console", console);
+    const auto queriesBeforeConsole = movie->queries;
+    check(ScaleformFocus::ConsoleOpen() && ScaleformFocus::Target().empty(), "console input field excluded from automatic activation");
+    check(movie->queries == queriesBeforeConsole, "console never probes ActionScript or stale underlying fields");
+    check(FrameworkFocus::Current().backend == Backend::None && !FrameworkFocus::Begin(target), "console blocks delayed Scaleform activation");
+    web = true; webField = "mer:console:stale";
+    check(FrameworkFocus::Current().identity.empty() && !FrameworkFocus::Begin({Backend::Meridian, webField}), "console blocks underlying Meridian focus and delayed capture");
+    FrameworkFocus::Poll(true); check(!probeEnabled, "console pauses automatic web field observer");
+    web = false; webField.clear();
+    console->inputContext.value = RE::IMenu::Context::kNone;
+    check(ScaleformFocus::ConsoleOpen(), "console registry name works without native input context");
+    ui.menuMap.back().first.value = "ReplacementConsole";
+    console->inputContext.value = RE::IMenu::Context::kConsole;
+    check(ScaleformFocus::ConsoleOpen(), "console input context works with replacement registry name");
+    console->onStack = false;
+    check(!ScaleformFocus::ConsoleOpen() && FrameworkFocus::Current().identity == custom && FrameworkFocus::Begin(target), "closed console resumes underlying Scaleform detection");
+    movie->onQuery = [&] { console->onStack = true; };
+    check(ScaleformFocus::Target().empty(), "console opening during field query rejects old automatic target");
+    console->onStack = false;
+    AutoInputPolicy consolePolicy;
+    consolePolicy.Started(custom);
+    check(consolePolicy.Update("",true,true,false) == AutoInputPolicy::Action::Stop, "opening console ends previously automatic session");
+    consolePolicy.Manual("",true);
+    check(consolePolicy.Update("",true,true,false) == AutoInputPolicy::Action::None, "console exclusion leaves manual F8 session running");
     const auto queries = movie->queries; prisma = true;
     check(ScaleformFocus::Target().empty() && movie->queries == queries, "Prisma blocks probing underlying movies");
     check(FrameworkFocus::Current().backend == Backend::Native && FrameworkFocus::Current().identity.empty() && !FrameworkFocus::Begin(target), "native backend wins and declines activation");

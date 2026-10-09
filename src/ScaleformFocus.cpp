@@ -88,8 +88,20 @@ std::string Field(RE::GFxMovieView& movie) {
     return path;
 }
 }
+bool ConsoleOpen() {
+    auto ui = RE::UI::GetSingleton();
+    if (!ui) return false;
+    RE::BSSpinLockGuard lock(ui->processMessagesLock);
+    for (const auto& menu : ui->menuStack) {
+        if (!menu || !menu->OnStack()) continue;
+        if (menu->inputContext.get() == RE::IMenu::Context::kConsole) return true;
+        for (const auto& entry : ui->menuMap)
+            if (entry.second.menu.get() == menu.get() && std::string_view(entry.first.c_str()) == "Console") return true;
+    }
+    return false;
+}
 std::string Target() {
-    if (Prisma::OwnsInput()) return {};
+    if (Prisma::OwnsInput() || ConsoleOpen()) return {};
     auto controls = RE::ControlMap::GetSingleton();
     auto ui = RE::UI::GetSingleton();
     if (!controls || !ui || controls->GetRuntimeData().textEntryCount <= 0) return {};
@@ -100,7 +112,7 @@ std::string Target() {
     // CustomRendering alone must not reject a real Scaleform editable field.
     if (top->name.empty() || !top->movie) return {};
     const auto path = Field(*top->movie);
-    if (path.empty() || Prisma::OwnsInput() || controls->GetRuntimeData().textEntryCount <= 0) return {};
+    if (path.empty() || Prisma::OwnsInput() || ConsoleOpen() || controls->GetRuntimeData().textEntryCount <= 0) return {};
     // AS queries may synchronously close/recreate a menu or open a dialog.
     // Confirm its ownership again using the same locked snapshot path.
     const auto currentMenus = Snapshot(*ui);

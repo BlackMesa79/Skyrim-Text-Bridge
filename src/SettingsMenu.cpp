@@ -19,6 +19,7 @@ void __stdcall Render() {
     changed |= ImGuiMCP::Checkbox("文本框聚焦时自动开启",&value.autoEnable);
     ImGuiMCP::TextUnformatted("可选：按 UI 框架识别 Scaleform 与 Meridian 的有效文本框，无菜单名称白名单。");
     ImGuiMCP::TextUnformatted("Scaleform 包含 SkyUI、RaceMenu 等；仅打开菜单或捏脸界面不会自动开启。");
+    ImGuiMCP::TextUnformatted("控制台不自动开启输入法；需要中文时可按快捷键手动开启。");
     ImGuiMCP::TextUnformatted("Prisma 保持原生输入；Modex 等独立 ImGui 界面仍用 F8 手动开启。");
     ImGuiMCP::TextUnformatted("无法可靠识别的界面保留手动开启；新界面的文字送达仍需游戏测试。");
     ImGuiMCP::TextUnformatted("按输入法快捷键手动关闭后，本输入框暂不自动开启；离开后重新聚焦即可恢复。");
