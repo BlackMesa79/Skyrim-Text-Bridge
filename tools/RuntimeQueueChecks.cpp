@@ -1,5 +1,7 @@
 #include <SKSE/SKSE.h>
 #include <RE/C/ControlMap.h>
+#include <RE/U/UI.h>
+#include <RE/I/IMenu.h>
 #include "GameCharacterQueue.h"
 #include <iostream>
 #include <stdexcept>
@@ -33,6 +35,18 @@ int wmain(int argc, wchar_t** argv) {
               REL::ID(ae ? 82256 : 80233).offset(), "resolve Scaleform object reference and invoke functions");
         Check(REL::ID(ae ? (f.version[1]==7 ? 524270 : 82331) : 80307).offset()!=0,
               "resolve version-specific Scaleform name validation");
+        Check(REL::ID(ae ? 68552 : 67252).offset()!=0, "resolve text-input permission function used by Modex cleanup");
+        // The framework scanner uses these common SE/AE fields directly. Audit
+        // the pinned library's layout for every admitted runtime without calling
+        // engine constructors, movie methods or virtual menu entry points.
+        Check(sizeof(RE::IMenu)==0x30 && offsetof(RE::IMenu,uiMovie)==0x10 &&
+              offsetof(RE::IMenu,depthPriority)==0x18 && offsetof(RE::IMenu,menuFlags)==0x1C &&
+              offsetof(RE::IMenu,inputContext)==0x20,
+              "Scaleform and console menu fields use shared SE/AE layout");
+        Check(offsetof(RE::UI,menuStack)==0x110 && offsetof(RE::UI,menuMap)==0x128 &&
+              offsetof(RE::UI,processMessagesLock)==0x158 && offsetof(RE::UI,menuSystemVisible)==0x1C0 &&
+              offsetof(RE::UI,closingAllMenus)==0x1C1,
+              "framework focus scanner UI fields use shared SE/AE layout");
         alignas(16) std::array<std::byte,0x600> bytes{};
         auto& queue = *reinterpret_cast<RE::BSInputEventQueue*>(bytes.data());
         Check(reinterpret_cast<std::byte*>(&queue.GetQueueHead())==bytes.data()+f.head &&

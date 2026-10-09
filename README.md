@@ -1,10 +1,10 @@
 # Skyrim Text Bridge
 
-**Local test update — 0.3.12-beta.8 / 本地测试更新。** The console is excluded from automatic activation; F8 remains available manually. Emoji fallback has been removed at the user's request. The panel uses the framework's fonts, with larger compact text and native English-state following retained. The user confirmed beta.7 starts and works normally; this new DLL needs game testing. **SKSE Menu Framework and a configured Chinese font are required.** See [test notes](release-materials/0.3.12-beta.8/TESTING.md) and [framework design](FRAMEWORK-INPUT.md). Stable 0.3.11 and earlier test ZIPs remain available; avoid beta.6 due to its startup deadlock.
+**Release — 0.4.0 / 正式版。** Promotes the user-validated beta.8 input behavior: in-game ImGui candidates, framework-based automatic focus detection, console opt-out, direct English typing and Modex Esc cleanup. Emoji display is not supported. **SKSE Menu Framework with a configured Chinese font and Media Keys Fix SKSE are required.** See [bilingual description](release-materials/0.4.0/description-en-zh.md), [release validation](VALIDATION-0.4.0.md) and [framework design](FRAMEWORK-INPUT.md). Older packages are retained; avoid beta.6 due to its startup deadlock.
 
-**0.3.11 / 正式打包版本。** Uses CommonLibSSE-NG **10.1.0**, V5 Address Library support and version-aware character queues. Exact runtime whitelist: **1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104**. The user confirmed normal local **1.6.1170** operation and approved normal-release packaging on 2026-10-05. 1.5.97 and both 1.7 runtimes still await game testing. See [validation notes](VALIDATION-0.3.11.md).
+**Exact runtime admission: 1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104.** CommonLibSSE-NG **10.1.0**, V5 Address Library and version-aware queues are retained. All four passed 90 offline address/queue/layout checks; the latest input behavior was user-tested on **1.6.1170** and approved for release on 2026-10-09. **1.5.97, 1.7.99 and 1.7.104 still await full game validation.** This does not admit other SE/AE patches, GOG 1.6.1179 or VR.
 
-**1.7.104 requires SKSE 2.3.1, its matching Address Library and a working nonexclusive keyboard patch (Media Keys Fix SKSE or equivalent).** The locally installed Media Keys Fix 1.0.2 advertises 1.7.99; its 1.7.104 operation is still unverified. Do not assume updating Text Bridge also updates its prerequisites. 已按用户要求打包为 0.3.11 正式版；1.7.x 仍待玩家实测反馈。请勿同时启用多个 Text Bridge 版本。
+**1.7.104 requires SKSE 2.3.1, its matching Address Library and a working nonexclusive keyboard patch (Media Keys Fix SKSE or equivalent).** The locally installed Media Keys Fix 1.0.2 advertises 1.7.99; its 1.7.104 operation is still unverified. Every prerequisite must independently support the game runtime. 请勿同时启用多个 Text Bridge 版本。
 
 0.3.10 adds optional automatic activation and a clean Esc exit that returns game input to English. Media Keys Fix SKSE is required for the normal setup. An optional native input-state/reset API is retained for FavoriteWheel; that separate integration still requires its own validation.
 
@@ -71,7 +71,7 @@ F8 输入模式中，普通键的按下、持续和松开事件不会送入下�
 
 发行包不包含 PDB，符号单独打包。SKSE 日志中的 `SkyrimTextBridge.log` 用于排查；不记录输入文字。
 
-正式安装 ZIP 仅含 DLL、默认 INI 与一个 `readme.txt`，使用说明和完整许可文本合并在该文件中。逐段英中对照详情页、简介及 SVG 封面位于 `release-materials/0.3.7/`，不占用安装包。
+正式安装 ZIP 仅含 DLL、默认 INI 与一个 `readme.txt`，使用说明和完整许可文本合并在该文件中。最新版逐段英中对照详情页、简介及 changelog 位于 `release-materials/0.4.0/`；原 SVG 封面保留在 `release-materials/0.3.7/`，不占用安装包。
 
 ## License
 

@@ -1,0 +1,13 @@
+0.4.0
+
+Move the candidate panel into the game's ImGui HUD; enlarge text and tighten spacing, with configurable style and position.
+候选面板改为游戏内 ImGui HUD 绘制，增大字号、缩小行距，支持调整样式与位置。
+
+Detect editable Scaleform/Meridian fields for optional automatic activation, including SkyUI and RaceMenu naming. Keep the console manual.
+按 Scaleform/Meridian 框架检测文本焦点，可选自动开启，覆盖 SkyUI 和 RaceMenu 命名；控制台保留手动开启。
+
+Follow the IME's Chinese/English state for direct English typing. Improve Esc cancellation/exit and Modex input cleanup; preserve Prisma native input.
+跟随输入法中英文状态，英文可直接输入；完善 Esc 取消/退出与 Modex 输入清理，避让 Prisma 原生输入。
+
+Update to CommonLibSSE-NG 10.1.0. Admit 1.5.97, 1.6.1170, 1.7.99 and 1.7.104; all passed offline checks, with current behavior game-tested on 1.6.1170.
+更新至 CommonLibSSE-NG 10.1.0，准入 1.5.97、1.6.1170、1.7.99 和 1.7.104；四版本离线检查通过，当前功能已在 1.6.1170 游戏中验证。

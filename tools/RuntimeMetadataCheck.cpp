@@ -16,9 +16,9 @@ int wmain(int argc,wchar_t** argv) {
     if(versions[0]!=se || versions[1]!=ae || versions[2]!=ae1799 || versions[3]!=ae17104)return 6;
     for(int i=4;i<16;++i)if(versions[i])return 7;
     std::uint32_t pluginVersion{};std::memcpy(&pluginVersion,data+4,4);
-    if(pluginVersion!=((3u<<16)|(12u<<4)|8u))return 9;
+    if(pluginVersion!=(4u<<16))return 9;
     std::uint32_t extraFlags{};std::memcpy(&extraFlags,data+0x304,4);
     if(!(extraFlags & (1u<<1)))return 8; // SKSE 2.3.x must see Address Library V5 support.
     FreeLibrary(module);
-    puts("DLL exports Query/Load; 0.3.12-beta.8 version and V5 flag set; only 1.5.97, 1.6.1170, 1.7.99 and 1.7.104 listed (entry point not executed)");
+    puts("DLL exports Query/Load; 0.4.0 version and V5 flag set; only 1.5.97, 1.6.1170, 1.7.99 and 1.7.104 listed (entry point not executed)");
 }
