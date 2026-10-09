@@ -53,8 +53,8 @@ $tsfStatus = Join-Path $outputDir 'tsf-check-status.txt'
 if (Test-Path -LiteralPath $tsfStatus) { Remove-Item -LiteralPath $tsfStatus }
 & "$outputDir\ImeLanguageTests.exe" $tsfStatus
 if ($LASTEXITCODE) { throw 'Real TSF mode tests failed' }
-if ((Get-Content -LiteralPath "$outputDir\tsf-check-status.txt" -Tail 1) -ne 'COMPLETED 11') { throw 'TSF test process exited before all checks completed; inspect build/native/tsf-check-status.txt' }
-Write-Output '11 real isolated TSF mode checks completed (no Sogou or game validation)'
+if ((Get-Content -LiteralPath "$outputDir\tsf-check-status.txt" -Tail 1) -ne 'COMPLETED 14') { throw 'TSF test process exited before all checks completed; inspect build/native/tsf-check-status.txt' }
+Write-Output '14 real isolated TSF mode checks completed (no Sogou or game validation)'
 & cl @common tests/InputMethodNameTests.cpp "/Fe$outputDir\InputMethodNameTests.exe" "/Fo$outputDir\InputMethodNameTests.obj" /link user32.lib imm32.lib ole32.lib oleaut32.lib uuid.lib /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'IME name test compilation failed' }
 & "$outputDir\InputMethodNameTests.exe"
@@ -68,7 +68,11 @@ New-Item -ItemType Directory -Path (Join-Path $projectRoot 'build\preview') -For
 if ($LASTEXITCODE) { throw 'Settings checks compilation failed' }
 & "$outputDir\SettingsChecks.exe"
 if ($LASTEXITCODE) { throw 'Settings and alpha checks failed' }
-& cl @common tools/PanelRenderChecks.cpp "/Fe$outputDir\PanelRenderChecks.exe" "/Fo$outputDir\PanelRenderChecks.obj" /link user32.lib /INCREMENTAL:NO
+& cl @common tools/PanelTextRasterChecks.cpp src/PanelTextRaster.cpp "/Fe$outputDir\PanelTextRasterChecks.exe" "/Fo$outputDir\\" /link user32.lib ole32.lib dwrite.lib d2d1.lib d3d11.lib dxgi.lib windowscodecs.lib /INCREMENTAL:NO
+if ($LASTEXITCODE) { throw 'System font raster checks compilation failed' }
+& "$outputDir\PanelTextRasterChecks.exe"
+if ($LASTEXITCODE) { throw 'System font raster checks failed' }
+& cl @common tools/PanelRenderChecks.cpp src/PanelTextRaster.cpp "/Fe$outputDir\PanelRenderChecks.exe" "/Fo$outputDir\\" /link user32.lib ole32.lib dwrite.lib d2d1.lib d3d11.lib dxgi.lib windowscodecs.lib /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'ImGui panel checks compilation failed' }
 & "$outputDir\PanelRenderChecks.exe"
 if ($LASTEXITCODE) { throw 'ImGui panel render checks failed' }
@@ -82,7 +86,7 @@ $sources += @('spdlog.cpp','stdout_sinks.cpp','color_sinks.cpp','file_sinks.cpp'
 & cl @common @pluginFlags /c /MP @sources "/Fo$outputDir\\"
 if ($LASTEXITCODE) { throw 'Plugin compilation failed' }
 $objects = @($sources | ForEach-Object { Join-Path $outputDir ([IO.Path]::GetFileNameWithoutExtension($_) + '.obj') })
-& link /NOLOGO /DLL /DEBUG /INCREMENTAL:NO "/OUT:$outputDir\SkyrimTextBridge.dll" @objects $CommonLibArchive user32.lib gdi32.lib imm32.lib comctl32.lib ole32.lib oleaut32.lib uuid.lib shell32.lib advapi32.lib version.lib d3d11.lib dxgi.lib d3dcompiler.lib dbghelp.lib bcrypt.lib
+& link /NOLOGO /DLL /DEBUG /INCREMENTAL:NO "/OUT:$outputDir\SkyrimTextBridge.dll" @objects $CommonLibArchive user32.lib gdi32.lib imm32.lib comctl32.lib ole32.lib oleaut32.lib uuid.lib shell32.lib advapi32.lib version.lib d3d11.lib dxgi.lib d3dcompiler.lib dbghelp.lib bcrypt.lib dwrite.lib d2d1.lib windowscodecs.lib
 if ($LASTEXITCODE) { throw 'Plugin link failed' }
 if ($RuntimeAddressLibrary) {
     & cl @common @pluginFlags /DENABLE_COMMONLIBSSE_TESTING tools/RuntimeQueueChecks.cpp "/Fe$outputDir\RuntimeQueueChecks.exe" "/Fo$outputDir\RuntimeQueueChecks.obj" /link $CommonLibArchive @($objects | Where-Object { [IO.Path]::GetFileName($_) -in @('spdlog.obj','stdout_sinks.obj','color_sinks.obj','file_sinks.obj','async.obj','cfg.obj') }) user32.lib ole32.lib shell32.lib advapi32.lib version.lib d3d11.lib dxgi.lib d3dcompiler.lib dbghelp.lib bcrypt.lib /INCREMENTAL:NO

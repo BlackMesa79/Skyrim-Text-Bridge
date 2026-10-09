@@ -38,7 +38,7 @@ struct PanelLayout { float x{}, y{}, width{}, height{}, scale{}; };
 inline PanelLayout FitPanel(float left, float top, float width, float height, float size, float x, float y,
                             const PanelSnapshot& panel) {
     if (!(width > 0 && height > 0) || !std::isfinite(width) || !std::isfinite(height)) return {};
-    const float baseHeight = panel.transient ? 62.f : 108.f + float(panel.lines.size() > 2 ? panel.lines.size() - 2 : 0) * 34.f;
+    const float baseHeight = panel.transient ? 52.f : 94.f + float(panel.lines.size() > 2 ? panel.lines.size() - 2 : 0) * 28.f;
     const float scale = std::min({std::clamp(height / 1080.f, .75f, 2.5f) * size, width / 380.f, height / baseHeight});
     return {left + (width - 380.f * scale) * x, top + (height - baseHeight * scale) * y,
             380.f * scale, baseHeight * scale, scale};

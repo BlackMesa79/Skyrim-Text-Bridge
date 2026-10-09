@@ -15,7 +15,7 @@ target("SkyrimTextBridge")
     add_includedirs("include", "extern/PrismaUI")
     add_deps("commonlibsse-ng")
     add_defines("TEXTBRIDGE_MANUAL_BUILD", "NOMINMAX", "WIN32_LEAN_AND_MEAN", "UNICODE", "_UNICODE")
-    add_syslinks("user32", "gdi32", "imm32", "comctl32", "ole32", "oleaut32", "uuid")
+    add_syslinks("user32", "gdi32", "imm32", "comctl32", "ole32", "oleaut32", "uuid", "dwrite", "d2d1", "d3d11", "dxgi", "windowscodecs")
 
 target("BridgeCoreTests")
     set_kind("binary")

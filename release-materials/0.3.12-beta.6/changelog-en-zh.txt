@@ -1,0 +1,10 @@
+0.3.12-beta.6
+
+Follow the current keyboard/IME language state. English layouts and the IME's own English mode can type directly without Ctrl+Space; the shortcut remains optional. Keep composition isolation and duplicate-character filtering.
+跟随当前键盘/输入法中英文状态，英文布局及输入法自身的英文模式可以直接打字，无需先按 Ctrl+空格；仍保留该快捷键。保留拼音隔离与重复字符过滤。
+
+Increase candidate text size and reduce row spacing. Add Windows color-font fallback for emoji and missing panel glyphs, rendered as images inside the in-game ImGui panel. Target editor font support remains separate.
+增大候选文字、缩小行距。Emoji 与面板缺失字形新增 Windows 彩色字体补绘，作为图像显示在游戏内 ImGui 面板；目标编辑器自身的字体支持仍另行决定。
+
+Retain framework-based automatic activation, SkyUI/RaceMenu fixes, Meridian support, Prisma native passthrough and Modex Esc cleanup.
+保留按框架自动开启、SkyUI/RaceMenu 修复、Meridian 支持、Prisma 原生输入避让与 Modex Esc 清理。

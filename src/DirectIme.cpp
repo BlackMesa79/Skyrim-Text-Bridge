@@ -23,16 +23,22 @@ std::atomic<bool> offTip{false};
 std::atomic<bool> english{false};
 std::atomic<bool> cancelComposition{false};
 bool appliedEnglish = false;
+std::atomic<bool> modeRequested{false};
+bool changingMode = false;
 std::atomic<ULONGLONG> requestTime{0};
 std::mutex mutex; std::deque<std::uint32_t> text;
 char16_t highSurrogate{};
+// Some windows call TranslateMessage, others do not. Deduplicate only the
+// WM_CHAR echo of our own translation; retain unsolicited Unicode characters.
+std::deque<std::pair<char16_t, ULONGLONG>> translatedEcho;
 bool detaching = false;
 std::wstring inputMethodName;
 ULONGLONG nameCheckedAt{};
 #ifdef TEXTBRIDGE_IME_TEST
 unsigned tsfModeChanges{};
 bool tsfEnglish{};
-void SetThreadMode(bool value) { ++tsfModeChanges; tsfEnglish = value; }
+bool testNativeState = true;
+void SetThreadMode(bool value) { ++tsfModeChanges; tsfEnglish = value; testNativeState = !value; }
 #else
 void SetThreadMode(bool value) { ImeLanguage::SetTsfMode(value); }
 #endif
@@ -66,8 +72,26 @@ std::wstring ReadComposition() {
     return ImmGetCompositionStringW(context, GCS_COMPSTR, result.data(), size) == size ? result : L"";
 }
 bool NativeMode() {
+    // IMM open status is not meaningful for a plain English keyboard layout.
+    // Query on the owner window thread, never from the game input hook.
+#ifdef TEXTBRIDGE_IME_TEST
+    return testNativeState;
+#else
+    const auto layout = GetKeyboardLayout(0);
+    if (!ImmIsIME(layout) && PRIMARYLANGID(LOWORD(reinterpret_cast<ULONG_PTR>(layout))) != LANG_CHINESE &&
+        PRIMARYLANGID(LOWORD(reinterpret_cast<ULONG_PTR>(layout))) != LANG_JAPANESE &&
+        PRIMARYLANGID(LOWORD(reinterpret_cast<ULONG_PTR>(layout))) != LANG_KOREAN) return false;
+    if (const auto native = ImeLanguage::TsfNativeMode()) return *native;
+#endif
     DWORD conversion{}, sentence{};
     return ImmGetOpenStatus(context) && ImmGetConversionStatus(context, &conversion, &sentence) && (conversion & IME_CMODE_NATIVE);
+}
+bool ObserveMode() {
+    if (modeRequested || composing || changingMode) return false;
+    const bool currentEnglish = !NativeMode();
+    const bool changed = english.exchange(currentEnglish) != currentEnglish;
+    appliedEnglish = currentEnglish;
+    return changed;
 }
 std::wstring CandidateText() {
     std::wstring result;
@@ -99,7 +123,7 @@ void UpdatePanel() {
     display += L"\n" + (composition.empty() ? std::wstring(L"请在当前输入框打字") : composition);
     display += L"\n" + inputMethodName;
     auto candidates = CandidateText();
-    if (composition.empty()) display += L"\nCtrl + Space 切换中英文 · Esc 退出";
+    if (composition.empty()) display += L"\n跟随输入法中英文状态 · Esc 退出";
     if (!composition.empty() && candidates.empty()) display += L"\n输入法未提供候选列表";
     ImePanel::Show(hwnd, display + candidates);
 }
@@ -108,8 +132,8 @@ void Detach(bool tip = false) {
     if (detaching) return;
     detaching = true;
     posted = false;
-    enabled = false; composing = false; highSurrogate = 0; Clear();
-    english = false; appliedEnglish = false; cancelComposition = false;
+    enabled = false; composing = false; highSurrogate = 0; translatedEcho.clear(); Clear();
+    english = false; appliedEnglish = false; modeRequested = false; cancelComposition = false;
     inputMethodName.clear(); nameCheckedAt = 0;
     bool switchGameplay = false;
     const bool owned = attached.exchange(false);
@@ -146,29 +170,38 @@ void Sync() {
     if (!Allowed()) { Detach(offTip.exchange(false)); return; }
     const bool nameChanged = RefreshInputMethodName();
     if (!attached) {
+        auto previous = ImmGetContext(hwnd);
+        context = previous;
+        const bool initialEnglish = !NativeMode();
+        if (previous) ImmReleaseContext(hwnd, previous);
+        context = nullptr;
         context = ImmCreateContext();
         if (!context) { Detach(); ImePanel::Show(hwnd, L"输入法启动失败", true); return; }
         attached = true;
         saved = ImmAssociateContext(hwnd, context);
-        appliedEnglish = english.load();
+        english = initialEnglish; appliedEnglish = initialEnglish;
+        changingMode = true;
         ImeLanguage::SetImmMode(context, appliedEnglish);
         SetThreadMode(appliedEnglish);
+        changingMode = false;
         UpdatePanel();
     }
     if (cancelComposition.exchange(false)) {
         ImmNotifyIME(context, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
-        composing = false; highSurrogate = 0;
+        composing = false; highSurrogate = 0; translatedEcho.clear();
         UpdatePanel();
     }
-    if (appliedEnglish != english.load()) {
+    if (modeRequested.exchange(false)) {
+        changingMode = true;
         ImmNotifyIME(context, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
-        composing = false; highSurrogate = 0;
+        composing = false; highSurrogate = 0; translatedEcho.clear();
         appliedEnglish = english.load();
         ImeLanguage::SetImmMode(context, appliedEnglish);
         SetThreadMode(appliedEnglish);
+        changingMode = false;
         UpdatePanel();
     }
-    else if (nameChanged && attached) UpdatePanel();
+    else if (attached && (ObserveMode() || nameChanged)) UpdatePanel();
 }
 LRESULT CALLBACK Subclass(HWND window, UINT message, WPARAM w, LPARAM l, UINT_PTR, DWORD_PTR) {
     // IMM cancellation may synchronously re-enter this callback during teardown.
@@ -185,10 +218,11 @@ LRESULT CALLBACK Subclass(HWND window, UINT message, WPARAM w, LPARAM l, UINT_PT
         if (message == WM_CHAR && w == VK_ESCAPE) return 0;
         if (message == WM_INPUTLANGCHANGE) {
             const auto result = DefSubclassProc(window, message, w, l);
-            if (attached && Allowed()) { RefreshInputMethodName(true); UpdatePanel(); }
+            if (attached && Allowed()) { modeRequested = false; translatedEcho.clear(); ObserveMode(); RefreshInputMethodName(true); UpdatePanel(); }
             return result;
         }
-        if (english && message == WM_KEYDOWN) {
+        if (message == WM_KEYDOWN && ObserveMode()) UpdatePanel();
+        if (english && !composing && !modeRequested && message == WM_KEYDOWN) {
             // Translate here: Skyrim need not call TranslateMessage. Ignore its
             // WM_CHAR copy below, so each physical/repeated key is committed once.
             BYTE keys[256]{};
@@ -199,7 +233,14 @@ LRESULT CALLBACK Subclass(HWND window, UINT message, WPARAM w, LPARAM l, UINT_PT
                 std::u16string printable;
                 for (int i=0; i<count; ++i)
                     if (chars[i] >= 0x20 && chars[i] != 0x7f) printable.push_back(static_cast<char16_t>(chars[i]));
-                if (!printable.empty()) Enqueue(printable);
+                if (!printable.empty()) {
+                    Enqueue(printable);
+                    const auto now = GetTickCount64();
+                    for (auto c : printable) {
+                        if (translatedEcho.size() == 64) translatedEcho.pop_front();
+                        translatedEcho.emplace_back(c, now);
+                    }
+                }
             }
         }
         if (message == WM_IME_SETCONTEXT) return DefWindowProcW(window, message, w, 0);
@@ -215,12 +256,16 @@ LRESULT CALLBACK Subclass(HWND window, UINT message, WPARAM w, LPARAM l, UINT_PT
             }
             UpdatePanel(); return 0;
         }
-        if (message == WM_IME_NOTIFY) { UpdatePanel(); return 0; }
+        if (message == WM_IME_NOTIFY) { ObserveMode(); UpdatePanel(); return 0; }
         if (message == WM_IME_CHAR) return 0;
         if (message == WM_CHAR) {
             // In direct mode the Windows stream owns characters, including English.
-            if (!english && !composing && !NativeMode() && w >= 0x20 && w != 0x7f) {
+            if (!composing && !NativeMode() && w >= 0x20 && w <= 0xffff && w != 0x7f) {
                 char16_t c = static_cast<char16_t>(w);
+                const auto now = GetTickCount64();
+                while (!translatedEcho.empty() && now - translatedEcho.front().second > 1000) translatedEcho.pop_front();
+                if (!translatedEcho.empty() && translatedEcho.front().first == c) { translatedEcho.pop_front(); return 0; }
+                translatedEcho.clear();
                 if (c >= 0xd800 && c <= 0xdbff) highSurrogate = c;
                 else {
                     char16_t value[2]{highSurrogate, c};
@@ -301,7 +346,7 @@ bool BlockNavigation() {
     // A confirming key can reach the game before the committed text is drained.
     std::lock_guard lock(mutex);return composing || !text.empty();
 }
-void ToggleEnglish() { if (enabled) { english = !english.load(); Tick(); } }
+void ToggleEnglish() { if (enabled) { english = !english.load(); modeRequested = true; Tick(); } }
 std::vector<std::uint32_t> Take(unsigned capacity) {
     std::lock_guard lock(mutex); std::vector<std::uint32_t> result;
     if (!Allowed()) { text.clear(); return result; }

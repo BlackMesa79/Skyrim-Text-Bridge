@@ -2,7 +2,37 @@
 #include <Windows.h>
 #include <imm.h>
 #include <msctf.h>
+#include <optional>
 namespace TextBridge::ImeLanguage {
+// Read only the existing window-thread manager; absence is not an English
+// signal. Modern TSF IMEs may expose state without matching IMM conversion.
+inline std::optional<bool> TsfNativeMode() {
+    using GetManager = HRESULT(WINAPI*)(ITfThreadMgr**);
+    auto module = GetModuleHandleW(L"msctf.dll");
+    auto get = module ? reinterpret_cast<GetManager>(GetProcAddress(module, "TF_GetThreadMgr")) : nullptr;
+    ITfThreadMgr* manager{};
+    if (!get || FAILED(get(&manager)) || !manager) return {};
+    ITfCompartmentMgr* compartments{};
+    std::optional<bool> result;
+    if (SUCCEEDED(manager->QueryInterface(IID_PPV_ARGS(&compartments)))) {
+        auto read = [&](const GUID& id) -> std::optional<LONG> {
+            ITfCompartment* value{};
+            std::optional<LONG> number;
+            if (SUCCEEDED(compartments->GetCompartment(id, &value))) {
+                VARIANT mode{};
+                if (SUCCEEDED(value->GetValue(&mode)) && mode.vt == VT_I4) number = mode.lVal;
+                VariantClear(&mode); value->Release();
+            }
+            return number;
+        };
+        const auto open = read(GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);
+        const auto conversion = read(GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION);
+        if (open && !*open) result = false;
+        else if (conversion) result = (*conversion & IME_CMODE_NATIVE) != 0;
+        compartments->Release();
+    }
+    manager->Release(); return result;
+}
 inline DWORD Conversion(DWORD current, bool english) {
     return english ? current & ~(IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE | IME_CMODE_SYMBOL) : current | IME_CMODE_NATIVE;
 }

@@ -1,0 +1,35 @@
+SKYRIM TEXT BRIDGE 0.3.12-beta.6
+By BlackMesa79
+https://github.com/BlackMesa79/Skyrim-Text-Bridge
+
+STATUS / 状态
+Local test build: English input follows the current keyboard/IME state; candidate text is larger and more compact; emoji/missing panel glyphs use Windows font fallback. The user confirmed SkyUI/RaceMenu automatic activation, Meridian and Modex Esc on beta.5. This new DLL still requires game testing. Exact runtime admission: 1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104. Older packages are retained.
+本地测试版：英文输入跟随当前键盘/输入法状态，候选文字更大、布局更紧凑，Emoji/面板缺失字形由 Windows 字体补绘。用户已确认 beta.5 的 SkyUI/RaceMenu 自动开启、Meridian 与 Modex Esc 正常；新 DLL 仍需游戏实测。精确准入版本：1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104，保留旧包。
+
+REQUIREMENTS / 前置
+Windows 10/11 with system fonts, matching SKSE64 and Address Library, Media Keys Fix SKSE or a working equivalent nonexclusive keyboard patch, and SKSE Menu Framework with HUD/ImGui exports. Configure EnableChinese=true and a Chinese-capable PrimaryFont under Data/SKSE/Plugins/fonts. Emoji fallback additionally uses the public LoadTexture, DisposeTexture and ImDrawList_AddImage exports, checked in local framework 3.18. Framework/fonts are not bundled. Each prerequisite must independently support your runtime. 1.7.104 uses SKSE 2.3.1; Media Keys Fix 1.0.2 documents 1.7.99, and its 1.7.104 operation requires confirmation.
+需要 Windows 10/11 及系统字体、匹配的 SKSE64 和 Address Library、Media Keys Fix SKSE 或可用等效非独占键盘补丁，以及提供 HUD/ImGui 导出的 SKSE Menu Framework。配置 EnableChinese=true 和 Data/SKSE/Plugins/fonts 中有效的中文 PrimaryFont；Emoji 补绘还使用公开 LoadTexture、DisposeTexture、ImDrawList_AddImage 导出，本地框架 3.18 已检查。框架与字体不随包提供，各前置需独立支持你的运行时。1.7.104 对应 SKSE 2.3.1；Media Keys Fix 1.0.2 说明列出 1.7.99，其在 1.7.104 的工作状态仍待确认。
+
+INSTALLATION / 安装
+Exit Skyrim before updating through MO2. Disable SimpleIME and duplicate Text Bridge installations. Preserve SkyrimTextBridge.user.ini for personal settings. Installation ZIP contains only DLL, default INI and this readme.txt with complete license notices; corresponding source and symbols are separate. Retained older packages allow rollback without save editing.
+退出游戏后通过 MO2 更新，禁用 SimpleIME 和重复安装。保留 SkyrimTextBridge.user.ini 以沿用个人设置。安装 ZIP 仅含 DLL、默认 INI 和本 readme.txt（含完整许可声明）；对应源码及符号另包。可回退保留的旧包，无需修改存档。
+
+USE AND SETTINGS / 使用与设置
+Focus a compatible field and press F8. On entry, input follows the current keyboard/IME English or native state. English can be typed directly; use your IME's own switch key or optional Ctrl+Space to change mode. F8 exits. Esc first cancels live composition, then exits after committed text is delivered. Exit still requests English state for gameplay; a later session will follow that state until you switch back. The selected IME profile is not changed. F1 -> Skyrim Text Bridge -> 输入法与面板设置 controls optional automatic activation (off by default), position, scale, colors, opacity, enabled state and hotkey. Manual off suppresses reactivation until focus leaves and returns.
+聚焦兼容文本框后按 F8。进入时跟随当前键盘/输入法的英文或本地语言状态，英文可以直接输入；可用输入法自身的切换键或可选 Ctrl+空格改变状态。F8 关闭，Esc 先取消正在选词的拼音，再于文字送达后退出。退出仍为游戏操作请求英文状态，下一次进入会沿用该状态，直至切回中文；不更换所选输入法配置。F1 -> Skyrim Text Bridge -> 输入法与面板设置 可调整可选自动开启（默认关闭）、位置、缩放、颜色、透明度、模组开关及快捷键。手动关闭后，离开再聚焦才自动开启。
+
+PANEL / 面板
+Candidate font increases from 17 to 22 and row spacing decreases from 34 to 28 base panel units. Main text still uses the framework font. Windows DirectWrite/Direct2D color-font fallback renders missing/supplementary glyphs as images inside the game's ImGui panel through public texture APIs. The private offscreen renderer does not modify the game device, shared font atlas or input-method profile. Texture cache is bounded; random temporary PNG files are removed immediately after loading. Common emoji were checked with real Windows rendering; flags/new sequences depend on installed system fonts. This covers the Text Bridge panel only; emoji display in the destination editor depends on its own fonts and Unicode handling.
+候选字号由 17 增至 22，行距由 34 缩为 28 个基础面板单位。主要文字仍使用框架字体；Windows DirectWrite/Direct2D 彩色字体补绘通过公开纹理接口，将缺失/补充平面字形作为图像绘制到游戏内 ImGui 面板。私有离屏渲染器不修改游戏设备、共享字库或输入法配置；纹理缓存数量受限，随机临时 PNG 加载后立即删除。常用 Emoji 已检查真实 Windows 渲染，国旗/新增组合取决于系统字体。补绘仅覆盖 Text Bridge 面板，目标编辑器内的 Emoji 显示由其字体及 Unicode 处理另行决定。
+
+COMPATIBILITY / 兼容性
+Input support includes Meridian UI (such as Tailor), Modex, SkyUI and other compatible text fields. Scaleform automatically detects actual editable focus without menu-name whitelists, including eligible RaceMenu naming fields; Meridian retains framework-wide DOM detection. Top input owners without a supported field block stale focus below. Password/read-only/disabled/hidden fields are excluded. Detection is not a blanket compatibility guarantee. Modex and independent ImGui interfaces remain manual F8. Prisma UI/Outfit Wheeler use their native input; Text Bridge yields and does not supply IME input to Prisma interfaces. Keeps Modex 3.0.2 Esc and close cleanup.
+输入支持包括 Meridian UI（如 Tailor）、Modex、SkyUI 等兼容文本框。Scaleform 按真实可编辑焦点自动检测，无菜单名称白名单，包含符合条件的 RaceMenu 命名；Meridian 保留框架级 DOM 检测。上层输入归属者缺少有效字段时阻止底下残留焦点。排除密码、只读、禁用、隐藏字段；识别焦点不等于所有编辑器完整兼容。Modex 与独立 ImGui 界面继续手动 F8。Prisma UI/Outfit Wheeler 使用原生输入，本模组主动避让，不向 Prisma 界面提供输入法接入。保留 Modex 3.0.2 Esc 和关闭清理。
+
+TESTING / 测试
+Offline checks passed for language-state following, Unicode/deduplication, real isolated TSF state reads, Windows color-font raster, public panel API fixtures, framework detection and four-runtime metadata/address queues. No game entry point was executed. Test English layouts, the IME's own English switch, Chinese composition, Shift/CapsLock/punctuation, repeated keys, emoji candidates, SkyUI/RaceMenu/Tailor, Modex Esc, Prisma and fullscreen. Keyboard filtering covers downstream events, not independent polling or earlier hooks; editing-key shortcuts may still trigger mods. Some IMEs provide no IMM candidate list. Other layouts/dead keys and renderer combinations need validation. Chinese UI only; Japanese/Korean localization remains a possible future direction.
+离线检查覆盖语言状态跟随、Unicode/重复过滤、真实隔离 TSF 状态读取、Windows 彩色字体补绘、面板公开 API 替身、框架检测及四运行时元数据/地址队列，未执行游戏入口。需实测英文布局、输入法自身英文切换、中文选词、Shift/CapsLock/标点、重复按键、Emoji 候选、SkyUI/RaceMenu/Tailor、Modex Esc、Prisma 及全屏。键盘过滤覆盖后续事件，不覆盖独立轮询或较早钩子；编辑键热键仍可能触发模组。部分输入法没有 IMM 候选列表，其他布局/死键及渲染组合仍需验证。界面目前为中文，日语/韩语本地化为未来可能方向。
+
+LICENSE AND SOURCE / 许可与源码
+Copyright (C) 2026 BlackMesa79. Original code: GPL-3.0-only, without warranty. Third-party files retain their licenses; complete notices and licenses follow. Corresponding source and build instructions are in SkyrimTextBridge-0.3.12-beta.6-source.zip. Provide corresponding source when redistributing binaries. SKSE Menu Framework is installed separately; its API header is supplied in source. No restriction is added against modifications or reverse engineering for debugging modifications to an LGPL component. Windows APIs and fonts are external system resources, not bundled assets.
+Copyright (C) 2026 BlackMesa79。自身代码采用 GPL-3.0-only，不提供担保；第三方文件保留原有许可，完整声明及许可合并于下方。对应源码及构建说明在 SkyrimTextBridge-0.3.12-beta.6-source.zip，转发二进制时须提供对应源码。SKSE Menu Framework 另行安装，源码包含 API 头文件；不额外限制为调试 LGPL 组件修改而进行的修改或逆向工程。Windows API 与字体为外部系统资源，不作为资产随包提供。

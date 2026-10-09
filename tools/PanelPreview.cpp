@@ -9,6 +9,8 @@
 #undef IM_COL32_BLACK_TRANS
 #include <imgui.h>
 #include <fstream>
+#include <wincodec.h>
+#include <wrl/client.h>
 namespace TextBridge::ImePanel {
 namespace {
 std::uint64_t TestNow() { return 100; }
@@ -23,6 +25,23 @@ void PreviewFill(ImGuiMCP::ImDrawList* draw, ImGuiMCP::ImVec2 a, ImGuiMCP::ImVec
 void PreviewRect(ImGuiMCP::ImDrawList* draw, ImGuiMCP::ImVec2 a, ImGuiMCP::ImVec2 b, ImGuiMCP::ImU32 c, float radius, ImGuiMCP::ImDrawFlags flags, float thickness) { reinterpret_cast<::ImDrawList*>(draw)->AddRect({a.x,a.y},{b.x,b.y},c,radius,flags,thickness); }
 void PreviewText(ImGuiMCP::ImDrawList* draw, const ImGuiMCP::ImFont* font, float size, ImGuiMCP::ImVec2 pos, ImGuiMCP::ImU32 c, const char* start, const char* end, float wrap, const ImGuiMCP::ImVec4* clip) { reinterpret_cast<::ImDrawList*>(draw)->AddText(reinterpret_cast<const ::ImFont*>(font),size,{pos.x,pos.y},c,start,end,wrap,reinterpret_cast<const ::ImVec4*>(clip)); }
 void PreviewMeasure(ImGuiMCP::ImVec2* out, ImGuiMCP::ImFont* font, float size, float max, float wrap, const char* start, const char* end, const char** remaining) { const auto result=reinterpret_cast<::ImFont*>(font)->CalcTextSizeA(size,max,wrap,start,end,remaining); *out={result.x,result.y}; }
+struct PreviewTexture { UINT width{}, height{}; std::vector<unsigned char> pixels; };
+std::unordered_map<std::uintptr_t, PreviewTexture> previewTextures;
+ImGuiMCP::ImTextureID PreviewLoad(const char* path, ImGuiMCP::ImVec2*) {
+    using Microsoft::WRL::ComPtr;
+    ComPtr<IWICImagingFactory> factory; ComPtr<IWICBitmapDecoder> decoder; ComPtr<IWICBitmapFrameDecode> frame; ComPtr<IWICFormatConverter> converter;
+    if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory))) ||
+        FAILED(factory->CreateDecoderFromFilename(std::filesystem::u8path(path).c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnLoad, &decoder)) ||
+        FAILED(decoder->GetFrame(0, &frame)) || FAILED(factory->CreateFormatConverter(&converter)) ||
+        FAILED(converter->Initialize(frame.Get(), GUID_WICPixelFormat32bppRGBA, WICBitmapDitherTypeNone, nullptr, 0, WICBitmapPaletteTypeCustom))) return {};
+    PreviewTexture next; converter->GetSize(&next.width, &next.height); next.pixels.resize(next.width * next.height * 4);
+    if (FAILED(converter->CopyPixels(nullptr, next.width * 4, UINT(next.pixels.size()), next.pixels.data()))) return {};
+    const auto id = previewTextures.size() + 2; previewTextures.emplace(id, std::move(next)); return reinterpret_cast<ImGuiMCP::ImTextureID>(id);
+}
+void PreviewDispose(const char*) {}
+void PreviewImage(ImGuiMCP::ImDrawList* draw, ImGuiMCP::ImTextureID id, ImGuiMCP::ImVec2 a, ImGuiMCP::ImVec2 b, ImGuiMCP::ImVec2 uvA, ImGuiMCP::ImVec2 uvB, ImGuiMCP::ImU32 color) {
+    reinterpret_cast<::ImDrawList*>(draw)->AddImage(id, {a.x,a.y}, {b.x,b.y}, {uvA.x,uvA.y}, {uvB.x,uvB.y}, color);
+}
 }
 }
 int main(int argc,char** argv) {
@@ -34,11 +53,16 @@ int main(int argc,char** argv) {
     unsigned char* pixels{}; int width{},height{}; io.Fonts->GetTexDataAsRGBA32(&pixels,&width,&height); io.Fonts->SetTexID(reinterpret_cast<::ImTextureID>(1));
     using namespace TextBridge::ImePanel;
     backend.context=PreviewContext; backend.viewport=PreviewViewport; backend.drawList=PreviewDrawList; backend.font=PreviewFont; backend.glyph=PreviewGlyph; backend.rect=PreviewRect; backend.fill=PreviewFill; backend.text=PreviewText; backend.measure=PreviewMeasure;
+    backend.loadTexture=PreviewLoad; backend.disposeTexture=PreviewDispose; backend.image=PreviewImage;
     TextBridge::Settings::Data value; value.opacity=.55f; value.x=.025f; value.y=.065f; TextBridge::Settings::Set(value);
-    Show(reinterpret_cast<HWND>(1),L"中文输入 · F8 关闭\nshang gu juan zhou\n当前输入法：微软拼音\n  1. 上古卷轴\n> 2. 上古卷轴特别版\n  3. 上古卷轴重制版\n  4. 上古卷轴：天际");
+    Show(reinterpret_cast<HWND>(1),L"中文输入 · F8 关闭\nhaha\n当前输入法：微软拼音\n> 1. 哈哈\n  2. 😂\n  3. 蛤蛤\n  4. O(∩_∩)O哈哈~\n  5. 好啊好啊\n  6. 👩‍💻");
+    // Warm up the same per-frame raster budget as the production HUD.
+    for (unsigned i = 0; i < 3; ++i) { ImGui::NewFrame(); TextBridge::ImePanel::Render(); ImGui::Render(); }
     ImGui::NewFrame(); TextBridge::ImePanel::Render(); ImGui::Render(); const auto data=ImGui::GetDrawData();
     std::ofstream file(argv[2],std::ios::binary); auto write=[&](const auto& v){file.write(reinterpret_cast<const char*>(&v),sizeof(v));};
-    write(width);write(height);file.write(reinterpret_cast<const char*>(pixels),width*height*4);write(data->CmdListsCount);
-    for(int i=0;i<data->CmdListsCount;++i){const auto list=data->CmdLists[i];write(list->VtxBuffer.Size);write(list->IdxBuffer.Size);write(list->CmdBuffer.Size);file.write(reinterpret_cast<const char*>(list->VtxBuffer.Data),list->VtxBuffer.Size*sizeof(::ImDrawVert));for(auto index:list->IdxBuffer)write(static_cast<std::uint32_t>(index));for(const auto& cmd:list->CmdBuffer){write(cmd.ClipRect);write(cmd.ElemCount);write(cmd.IdxOffset);write(cmd.VtxOffset);}}
+    write(std::uint32_t(previewTextures.size()+1));write(std::uint64_t(1));write(width);write(height);file.write(reinterpret_cast<const char*>(pixels),width*height*4);
+    for(const auto& [id, texture]:previewTextures){write(std::uint64_t(id));write(texture.width);write(texture.height);file.write(reinterpret_cast<const char*>(texture.pixels.data()),texture.pixels.size());}
+    write(data->CmdListsCount);
+    for(int i=0;i<data->CmdListsCount;++i){const auto list=data->CmdLists[i];write(list->VtxBuffer.Size);write(list->IdxBuffer.Size);write(list->CmdBuffer.Size);file.write(reinterpret_cast<const char*>(list->VtxBuffer.Data),list->VtxBuffer.Size*sizeof(::ImDrawVert));for(auto index:list->IdxBuffer)write(static_cast<std::uint32_t>(index));for(const auto& cmd:list->CmdBuffer){write(cmd.ClipRect);write(cmd.ElemCount);write(cmd.IdxOffset);write(cmd.VtxOffset);write(std::uint64_t(reinterpret_cast<std::uintptr_t>(cmd.TextureId)));}}
     ImGui::DestroyContext();
 }

@@ -22,7 +22,8 @@ void __stdcall Render() {
     ImGuiMCP::TextUnformatted("Prisma 保持原生输入；Modex 等独立 ImGui 界面仍用 F8 手动开启。");
     ImGuiMCP::TextUnformatted("无法可靠识别的界面保留手动开启；新界面的文字送达仍需游戏测试。");
     ImGuiMCP::TextUnformatted("按输入法快捷键手动关闭后，本输入框暂不自动开启；离开后重新聚焦即可恢复。");
-    ImGuiMCP::TextUnformatted("开启后用 Ctrl + Space 切换中英文；再次按输入法快捷键退出。");
+    ImGuiMCP::TextUnformatted("开启后跟随当前输入法中英文状态，英文可直接输入；Ctrl + Space 仍可切换。");
+    ImGuiMCP::TextUnformatted("也可用输入法自身的中英文切换键；再次按输入法快捷键退出。");
     ImGuiMCP::TextUnformatted("Esc：有拼音时先取消，输入完成后退出；退出时关闭游戏输入法，恢复正常操作。");
     ImGuiMCP::TextUnformatted("输入期间拦截普通键热键，保留鼠标及退格、方向、删除等编辑键。");
     ImGuiMCP::TextUnformatted(("输入法快捷键：" + Utf8(Settings::KeyName(value.hotkey))).c_str());

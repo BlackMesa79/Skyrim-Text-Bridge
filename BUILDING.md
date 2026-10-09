@@ -4,6 +4,8 @@
 
 Windows x64, Visual Studio 2022 C++ toolset 14.44, Windows SDK 10.0.26100.0, PowerShell, Node.js, and spdlog 1.16.0. `scripts/Build-Local.ps1` discovers Visual Studio/SDK through vswhere and the registry.
 
+The panel glyph fallback uses Windows DirectWrite, Direct2D, WIC and a private D3D11 WARP device. The build links `dwrite`, `d2d1`, `windowscodecs`, `d3d11` and `dxgi`; no font or rendering-library binaries are bundled. Real raster checks write developer previews under build/preview and require Windows system fonts. Those checks do not upload textures to Skyrim.
+
 This release pins CommonLibSSE-NG 10.1.0 to `39f9d07a6ffabea8fb559eee87ab7d27cd463e8a` under the historical `extern/CommonLibVR` path. Matching public framework headers are included. No prebuilt CommonLib `.lib` or framework/game DLLs are included. Upstream's current GPL license and exceptions are retained; see THIRD-PARTY-NOTICES.md.
 
 ## Build CommonLib first
@@ -43,7 +45,7 @@ These checks do not launch Skyrim; supported runtime metadata is not a claim of 
 ./scripts/Package.ps1 -Release
 ```
 
-Produces `dist/SkyrimTextBridge-0.3.12-beta.5.zip` (exactly the DLL, default INI and one readme.txt containing usage and full license notices) and a separate symbols ZIP. `-Release` chooses the package filename and includes symbols; it does not publish or tag anything. This branch includes the ImGui panel public-API fixture (30 assertions), framework/Scaleform focus fixture (91 assertions), Modex menu-message fixture (26 assertions), DirectIme lifecycle fixture (52 assertions) and real isolated TSF mode fixture. The previous 0.3.11 stable and earlier test ZIPs remain available. New automatic field detection, newly discovered interfaces, actual Modex/Sogou behavior, exclusive fullscreen and 1.7.x remain pending game validation. Prepare its corresponding source ZIP with `git archive` from the same source commit before distributing it.
+Produces `dist/SkyrimTextBridge-0.3.12-beta.6.zip` (exactly the DLL, default INI and one readme.txt containing usage and full license notices) and a separate symbols ZIP. `-Release` chooses the package filename and includes symbols; it does not publish or tag anything. This branch includes the ImGui panel public-API fixture (36 assertions), framework/Scaleform focus fixture (91 assertions), Modex menu-message fixture (26 assertions), DirectIme lifecycle fixture (60 assertions) and real isolated TSF mode fixture (14 assertions) and Windows font/raster fixture (10 assertions). The previous 0.3.11 stable and earlier test ZIPs remain available. New automatic field detection, newly discovered interfaces, actual Modex/Sogou behavior, exclusive fullscreen and 1.7.x remain pending game validation. Prepare its corresponding source ZIP with `git archive` from the same source commit before distributing it.
 
 `Sync-Mod.ps1` is an optional local deployment helper. Supply `-Target '<your MO2 mod folder>' -Release`; it refuses to replace a running game's DLL and backs up overwritten files. The folder must already exist. The default is the developer local `36 - SkyrimTextBridge` mod folder; replacements are backed up. Older release ZIPs are retained. Enable only one Text Bridge package in MO2. Existing user settings can be copied separately if desired.
 

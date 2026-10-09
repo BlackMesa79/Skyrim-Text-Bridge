@@ -1,6 +1,6 @@
 # Skyrim Text Bridge
 
-**Local test update — 0.3.12-beta.5 / 本地测试更新。** Fixes beta.4 SkyUI automatic activation by correcting CustomRendering and passive overlay ownership. Routes optional automatic input by UI framework. Scaleform uses actual focused editable fields across registered open input menus, with no menu-name whitelist. Meridian retains its framework-wide field detection; Prisma retains native input. Independent ImGui interfaces such as Modex remain manual. Keeps beta.3 Esc/TSF fixes and the ImGui HUD. **SKSE Menu Framework and a configured Chinese font are required.** See [test notes](release-materials/0.3.12-beta.5/TESTING.md) and [framework design](FRAMEWORK-INPUT.md); the new binary needs game testing. Stable 0.3.11 and earlier test ZIPs remain available.
+**Local test update — 0.3.12-beta.6 / 本地测试更新。** Follows the current keyboard/IME language state: English input no longer requires Ctrl+Space. Enlarges candidate text, reduces row spacing, and uses Windows color-font raster fallback for emoji/missing glyphs through public ImGui texture exports. Retains beta.5 framework detection and Modex Esc fixes. The user confirmed SkyUI/RaceMenu automatic activation, Meridian and Modex Esc on beta.5; this new DLL needs game testing. **SKSE Menu Framework and a configured Chinese font are required.** See [test notes](release-materials/0.3.12-beta.6/TESTING.md) and [framework design](FRAMEWORK-INPUT.md). Stable 0.3.11 and earlier test ZIPs remain available.
 
 **0.3.11 / 正式打包版本。** Uses CommonLibSSE-NG **10.1.0**, V5 Address Library support and version-aware character queues. Exact runtime whitelist: **1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104**. The user confirmed normal local **1.6.1170** operation and approved normal-release packaging on 2026-10-05. 1.5.97 and both 1.7 runtimes still await game testing. See [validation notes](VALIDATION-0.3.11.md).
 
@@ -8,7 +8,7 @@
 
 0.3.10 adds optional automatic activation and a clean Esc exit that returns game input to English. Media Keys Fix SKSE is required for the normal setup. An optional native input-state/reset API is retained for FavoriteWheel; that separate integration still requires its own validation.
 
-A Skyrim SKSE plugin for Chinese IME input, explicit English typing, and keyboard hotkey filtering. Includes an adjustable candidate panel and SKSE Menu Framework HUD rendering and settings.
+A Skyrim SKSE plugin for Chinese IME input, English typing, and keyboard hotkey filtering. Includes an adjustable candidate panel and SKSE Menu Framework HUD rendering and settings.
 
 **支持 Meridian UI（如 Tailor）、Modex、SkyUI 等界面的输入；兼容 Prisma UI。** 前者通过 F8 调用本模组输入。Prisma UI 由框架自身处理输入，本模组不为它提供输入支持，也不接管它的输入法；兼容共存，不影响其正常输入。
 
@@ -18,7 +18,7 @@ A Skyrim SKSE plugin for Chinese IME input, explicit English typing, and keyboar
 
 1. 安装与游戏匹配的 SKSE64、Address Library 和 Media Keys Fix SKSE（或等效非独占键盘补丁）；DLL 接受 Skyrim **1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104**，实测状态见上方说明。
 2. 将发行 ZIP 安装到 MO2，禁用 SimpleIME。更新前退出游戏；个人 `SkyrimTextBridge.user.ini` 会保留。
-3. 点击文本框，按 **F8** 开启输入；按 **Ctrl + 空格**切换中英文，再按 F8 关闭。切换语言会取消尚未选定的拼音。
+3. 点击文本框，按 **F8** 开启输入，或启用可选自动开启。进入时跟随当前输入法/键盘的中英文状态；英文布局或输入法英文状态下直接打字。可用输入法自身切换键或 **Ctrl + 空格**切换中英文，F8 关闭。Ctrl+空格切换会取消尚未选定的拼音。
 4. 安装匹配游戏的 SKSE Menu Framework，并配置中文字体（EnableChinese=true 和有效 PrimaryFont）；在默认 F1 菜单的 **Skyrim Text Bridge → 输入法与面板设置**调整开关、快捷键、自动开启、位置、颜色及背景透明度。
 
 自动开启默认关闭。在设置页勾选“文本框聚焦时自动开启”并保存，或在 `SkyrimTextBridge.user.ini` 的 `[Input]` 下设置 `AutoEnable=1`。按 UI 框架识别：Scaleform 不再限定菜单名称，而是检查已打开的最上层输入菜单、实际可编辑焦点与可见性，覆盖符合条件的 SkyUI、RaceMenu 及其他 Scaleform 界面；Meridian/Tailor 沿用框架级文本框检测。Modex 等独立 ImGui 界面保留手动 F8，Prisma 始终避让。按自定义快捷键手动关闭后，当前焦点暂不自动重开；离开再聚焦后恢复。自动开启的会话失焦后结束，换框时清空旧会话的未提交内容。新界面的文字提交仍需实测，识别焦点不等于所有界面已经完整兼容。
@@ -29,7 +29,11 @@ Automatic activation is optional and off by default. Scaleform now discovers foc
 
 候选面板已改为游戏内 ImGui 绘制，不再创建桌面悬浮窗口。目标包括窗口化、无边框及独占全屏；真正独占全屏、Alt+Tab 与渲染模组组合仍需游戏验证。面板不抢占焦点、不打开框架窗口、不暂停游戏；Media Keys Fix 的非独占键盘访问仍为输入前置。框架须加载中文字体，缺字可检查日志与框架字体配置。切换菜单、读档、失焦或 Prisma 接管时退出输入模式。
 
-面板显示当前 Windows 输入法名称，并在切换输入法后刷新（同语言配置切换约一秒内更新）。标题中的中/英文是 Text Bridge 的输入模式。读到具体名称时显示“当前输入法：……”；只读到语言信息时显示“键盘语言：……”，不会将语言误标为输入法名称；两者都未取得时显示“当前输入法：未知”。
+面板显示当前 Windows 输入法名称，并在切换输入法后刷新（同语言配置切换约一秒内更新）。标题中的中/英文会跟随当前键盘/输入法实际状态。读到具体名称时显示“当前输入法：……”；只读到语言信息时显示“键盘语言：……”，不会将语言误标为输入法名称；两者都未取得时显示“当前输入法：未知”。
+
+输入模式会读取窗口线程的 IMM/TSF 实际状态，响应输入法自身的中英文切换与布局切换；不再仅依赖本模组的 Ctrl+空格标记。Esc 退出仍请求英文状态，所以再次聚焦时若仍为英文，可以直接输入英文；需要中文时使用输入法自身的切换键或 Ctrl+空格。不会替玩家选择另一输入法配置。
+
+候选字号由 17 提升到 22，行距由 34 缩为 28（基础面板单位），仍可在设置页缩放。主面板继续使用框架中文字体；缺失字形和超出框架 16 位字形范围的 Emoji，由 Windows DirectWrite/Direct2D 离屏补绘后通过公开纹理接口绘制进游戏。缓存有数量限制，临时图片加载后立即删除，不捆绑字体或修改框架字库。常用彩色 Emoji 已做真实 Windows 渲染检查；国旗、新增 Emoji 等按系统字体能力显示，不能保证所有序列都有图形。该补绘仅覆盖本模组面板，提交后目标编辑器自身的字体支持另行决定显示效果。
 
 ## Compatibility / 兼容性
 

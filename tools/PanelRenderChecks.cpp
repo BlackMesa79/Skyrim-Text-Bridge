@@ -12,9 +12,11 @@ const char* missingExport{};
 unsigned registrations{};
 void(__stdcall* callback)(){};
 ImGuiViewport view{};
-struct TextCommand { std::string text; ImU32 color; ImVec4 clip; };
+struct TextCommand { std::string text; ImU32 color; ImVec4 clip; float size; ImVec2 position; };
 std::vector<TextCommand> texts;
 std::vector<ImU32> backgrounds;
+unsigned images{}, loads{}, disposals{};
+std::string loadedPath;
 std::int64_t Register(void(__stdcall* render)()) { if (registerFails) return -1; ++registrations; callback = render; return 0; }
 ImGuiContext* Context() { return hasContext ? reinterpret_cast<ImGuiContext*>(1) : nullptr; }
 ImGuiViewport* Viewport() { return &view; }
@@ -23,9 +25,12 @@ ImFont* Font() { return reinterpret_cast<ImFont*>(3); }
 const ImFontGlyph* Glyph(ImFont*, ImWchar) { return reinterpret_cast<ImFontGlyph*>(4); }
 void Rect(ImDrawList*, ImVec2, ImVec2, ImU32, float, ImDrawFlags, float) {}
 void Fill(ImDrawList*, ImVec2, ImVec2, ImU32 color, float, ImDrawFlags) { backgrounds.push_back(color); }
-void Text(ImDrawList*, const ImFont*, float, ImVec2, ImU32 color, const char* start, const char* end, float, const ImVec4* clip) {
-    texts.push_back({std::string(start, end), color, *clip});
+void Text(ImDrawList*, const ImFont*, float size, ImVec2 position, ImU32 color, const char* start, const char* end, float, const ImVec4* clip) {
+    texts.push_back({std::string(start, end), color, *clip, size, position});
 }
+ImTextureID LoadTexture(const char* path, ImVec2*) { ++loads; loadedPath = path; return reinterpret_cast<ImTextureID>(5); }
+void DisposeTexture(const char*) { ++disposals; }
+void Image(ImDrawList*, ImTextureID, ImVec2, ImVec2, ImVec2, ImVec2, ImU32) { ++images; }
 void Measure(ImVec2* out, ImFont*, float size, float, float, const char* start, const char* end, const char**) {
     unsigned points{}; for (auto p = start; p != end; ++p) if ((static_cast<unsigned char>(*p) & 0xC0) != 0x80) ++points;
     *out = {points * size * .7f, size};
@@ -38,6 +43,7 @@ void* TestResolve(const char* name) {
     EXPORT("igGetFont", Font); EXPORT("ImFont_FindGlyphNoFallback", Glyph);
     EXPORT("ImDrawList_AddRect", Rect); EXPORT("ImDrawList_AddRectFilled", Fill);
     EXPORT("ImDrawList_AddText_FontPtr", Text); EXPORT("ImFont_CalcTextSizeA", Measure);
+    EXPORT("LoadTexture", LoadTexture); EXPORT("DisposeTexture", DisposeTexture); EXPORT("ImDrawList_AddImage", Image);
 #undef EXPORT
     return nullptr;
 }
@@ -65,6 +71,10 @@ int main() {
     Show(owner, L"中文输入 · F8 关闭\nzhong wen\n当前输入法：微软拼音\n> 1. 中文##literal\n  2. 中问");
     frame(); check(!texts.empty() && !backgrounds.empty(), "snapshot draws without opening framework settings");
     check(std::any_of(texts.begin(), texts.end(), [](const auto& c) { return c.text == "中文##literal"; }), "candidate ## remains literal text");
+    const auto candidate = std::find_if(texts.begin(), texts.end(), [](const auto& c) { return c.text == "中文##literal"; });
+    check(candidate->size >= 22 && candidate->clip.w - candidate->clip.y == 28, "candidate font enlarged with compact row height");
+    const auto next = std::find_if(texts.begin(), texts.end(), [](const auto& c) { return c.text == "中问"; });
+    check(next->position.y - candidate->position.y == 28, "candidate baseline spacing reduced from 34 to 28");
     check(std::all_of(texts.begin(), texts.end(), [](const auto& c) { return (c.color >> 24) == 255; }), "text opacity independent of background");
     for (const auto alpha : {0.f, .5f, 1.f}) {
         auto value = Settings::Data{}; value.opacity = alpha; Settings::Set(value); frame();
@@ -83,6 +93,13 @@ int main() {
     Show(owner, L"中文输入\n测试"); focused = false; frame(); focused = true; frame();
     check(texts.empty(), "focus loss removes stale display even after return");
     Show(owner, L"中文输入\n测试"); hasContext = false; frame(); check(texts.empty(), "framework not initialized safely skips drawing"); hasContext = true;
+    Show(owner, L"中文输入\n哈哈\n当前输入法：微软拼音\n> 1. 😂\n  2. 👩‍💻"); frame();
+    check(images == 2 && loads == 2, "supplementary emoji uses real Windows raster and public image export");
+    check(!std::filesystem::exists(std::filesystem::u8path(loadedPath)), "candidate raster temporary file removed after public texture load");
+    frame(); check(loads == 2 && images == 4, "unchanged emoji reuses bounded texture cache");
+    Hide(); for (unsigned i = 0; i < 4; ++i) frame();
+    check(disposals == 2 && rasterCache.empty(), "hidden panel retires textures after submitted frames");
+    Show(owner, L"中文输入\n测试");
     value = Settings::Data{}; value.enabled = false; Settings::Set(value); frame(); check(texts.empty(), "disabled mod does not render"); Settings::Set({});
     PanelState shared;
     std::thread writer([&] { for (unsigned i = 0; i < 10000; ++i) { shared.Show(1, "title\nChinese\ncandidate", false, i); if (i % 3 == 0) shared.Hide(); } });
