@@ -1,0 +1,7 @@
+0.3.12-beta.7
+
+Fix a beta.6 startup deadlock before the main menu. Initialize the emoji renderer only when an actual glyph fallback is needed, outside DLL/thread initialization and the Windows loader lock.
+修复 beta.6 在进入主菜单前黑屏卡死的问题。Emoji 渲染器仅在确实需要补绘字形时初始化，避开 DLL/线程初始化及 Windows 加载锁。
+
+Add real DLL load and thread-lifecycle regression checks. Retain native English typing, larger compact candidate text, emoji display, automatic focus detection and Modex Esc fixes.
+新增真实 DLL 加载与线程生命周期回归检查。保留原生英文输入、更大更紧凑的候选文字、Emoji 显示、自动焦点检测和 Modex Esc 修复。

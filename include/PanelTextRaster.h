@@ -12,4 +12,7 @@ struct Bitmap {
 // foreign ImGui font atlas, input context, or selected input-method profile.
 Bitmap Render(std::string_view text, float size, unsigned width, unsigned height, std::uint32_t color);
 bool SavePng(const Bitmap& image, const wchar_t* path);
+#ifdef TEXTBRIDGE_RASTER_TEST
+unsigned TestInitializationCount();
+#endif
 }

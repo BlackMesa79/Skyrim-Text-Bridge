@@ -68,6 +68,18 @@ New-Item -ItemType Directory -Path (Join-Path $projectRoot 'build\preview') -For
 if ($LASTEXITCODE) { throw 'Settings checks compilation failed' }
 & "$outputDir\SettingsChecks.exe"
 if ($LASTEXITCODE) { throw 'Settings and alpha checks failed' }
+& cl @common /DTEXTBRIDGE_RASTER_TEST /LD tools/RasterLoadProbe.cpp src/PanelTextRaster.cpp "/Fe$outputDir\RasterLoadProbe.dll" "/Fo$outputDir\\" /link user32.lib ole32.lib dwrite.lib d2d1.lib d3d11.lib dxgi.lib windowscodecs.lib /INCREMENTAL:NO
+if ($LASTEXITCODE) { throw 'Raster lifecycle DLL compilation failed' }
+& cl @common tools/RasterLoadChecks.cpp "/Fe$outputDir\RasterLoadChecks.exe" "/Fo$outputDir\RasterLoadChecks.obj" /link /INCREMENTAL:NO
+if ($LASTEXITCODE) { throw 'Raster lifecycle checker compilation failed' }
+$rasterCheck = Start-Process -FilePath "$outputDir\RasterLoadChecks.exe" -ArgumentList ('"' + "$outputDir\RasterLoadProbe.dll" + '"') -PassThru -WindowStyle Hidden -RedirectStandardOutput "$outputDir\raster-load-checks.txt" -RedirectStandardError "$outputDir\raster-load-errors.txt"
+if (!$rasterCheck.WaitForExit(30000)) {
+    # Only our isolated regression process may be stopped; never the game.
+    $rasterCheck.Kill()
+    throw 'Raster DLL lifecycle checks timed out (possible loader-lock deadlock)'
+}
+Get-Content -LiteralPath "$outputDir\raster-load-checks.txt"
+if ($rasterCheck.ExitCode -ne 0) { Get-Content -LiteralPath "$outputDir\raster-load-errors.txt"; throw 'Raster DLL lifecycle checks failed' }
 & cl @common tools/PanelTextRasterChecks.cpp src/PanelTextRaster.cpp "/Fe$outputDir\PanelTextRasterChecks.exe" "/Fo$outputDir\\" /link user32.lib ole32.lib dwrite.lib d2d1.lib d3d11.lib dxgi.lib windowscodecs.lib /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'System font raster checks compilation failed' }
 & "$outputDir\PanelTextRasterChecks.exe"

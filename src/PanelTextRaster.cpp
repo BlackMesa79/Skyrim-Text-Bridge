@@ -8,20 +8,33 @@
 #include <cmath>
 #include <algorithm>
 #include <string>
+#ifdef TEXTBRIDGE_RASTER_TEST
+#include <atomic>
+#endif
 namespace TextBridge::PanelTextRaster {
 namespace {
 using Microsoft::WRL::ComPtr;
-// COM and graphics objects are confined to the HUD/render thread. Their
-// destructor releases owned resources before balancing our apartment reference.
+// Dynamic TLS constructors run under DLL_THREAD_ATTACH's loader lock on MSVC.
+// Never create COM/DirectX objects in TLS, DllMain, or a namespace initializer.
+struct Apartment {
+    HRESULT result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    ~Apartment() { if (SUCCEEDED(result)) CoUninitialize(); }
+    explicit operator bool() const { return SUCCEEDED(result) || result == RPC_E_CHANGED_MODE; }
+};
+#ifdef TEXTBRIDGE_RASTER_TEST
+std::atomic<unsigned> initializationCount{};
+#endif
 struct Renderer {
-    HRESULT apartment = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    DWORD ownerThread = GetCurrentThreadId();
     ComPtr<IDWriteFactory> write;
     ComPtr<ID2D1Factory1> factory;
     ComPtr<ID3D11Device> device;
     ComPtr<ID2D1Device> d2dDevice;
     ComPtr<ID2D1DeviceContext> context;
     Renderer() {
-        if (FAILED(apartment) && apartment != RPC_E_CHANGED_MODE) return;
+#ifdef TEXTBRIDGE_RASTER_TEST
+        ++initializationCount;
+#endif
         if (FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
             reinterpret_cast<IUnknown**>(write.GetAddressOf())))) return;
         D2D1_FACTORY_OPTIONS options{};
@@ -33,21 +46,31 @@ struct Renderer {
         if (FAILED(device.As(&dxgi)) || FAILED(factory->CreateDevice(dxgi.Get(), &d2dDevice))) return;
         d2dDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &context);
     }
-    ~Renderer() {
-        context.Reset(); d2dDevice.Reset(); device.Reset(); factory.Reset(); write.Reset();
-        if (SUCCEEDED(apartment)) CoUninitialize();
-    }
 };
-thread_local Renderer renderer;
+Renderer& GetRenderer() {
+    // Only Render's actual missing-glyph path can initialize this object. One
+    // render-thread instance for this process-lifetime SKSE plugin. Deliberately
+    // no CRT/TLS teardown: DirectX release during DLL detach can also deadlock.
+    // Windows reclaims the private device on process exit; hot unload is unsupported.
+    static Renderer* const value = new Renderer;
+    return *value;
 }
+}
+#ifdef TEXTBRIDGE_RASTER_TEST
+unsigned TestInitializationCount() { return initializationCount.load(); }
+#endif
 Bitmap Render(std::string_view text, float size, unsigned width, unsigned height, std::uint32_t color) {
     Bitmap result;
     if (text.empty() || text.size() > 16384 || !std::isfinite(size) || size < 1 || size > 128 ||
-        !width || width > 2048 || !height || height > 256 || !renderer.context || !renderer.write) return result;
+        !width || width > 2048 || !height || height > 256) return result;
     const int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text.data(), static_cast<int>(text.size()), nullptr, 0);
     if (!length) return result;
     std::wstring wide(length, 0);
     if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text.data(), static_cast<int>(text.size()), wide.data(), length)) return result;
+    Apartment apartment;
+    if (!apartment) return result;
+    auto& renderer = GetRenderer();
+    if (renderer.ownerThread != GetCurrentThreadId() || !renderer.context || !renderer.write) return result;
     ComPtr<IDWriteTextFormat> format;
     // System fallback shapes supplementary emoji, variation selectors and ZWJ
     // sequences together. No bundled font files or 16-bit glyph substitution.
@@ -94,6 +117,8 @@ Bitmap Render(std::string_view text, float size, unsigned width, unsigned height
 }
 bool SavePng(const Bitmap& image, const wchar_t* path) {
     if (!image || !path) return false;
+    Apartment apartment;
+    if (!apartment) return false;
     ComPtr<IWICImagingFactory> factory;
     if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)))) return false;
     ComPtr<IWICStream> stream;
