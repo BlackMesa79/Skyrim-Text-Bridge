@@ -30,9 +30,19 @@ std::vector<Candidate> Snapshot(RE::UI& ui) {
         auto menu = ui.menuStack[i];
         if (!menu || !menu->OnStack()) continue;
         const auto context = menu->inputContext.get();
-        const bool ownsInput = menu->UsesMenuContext() || menu->Modal() || menu->CustomRendering() ||
+        const bool inputRole = menu->UsesMenuContext() || menu->Modal() ||
             (context != RE::IMenu::Context::kNone && context != RE::IMenu::Context::kGameplay &&
              context != RE::IMenu::Context::kCursor && context != RE::IMenu::Context::kDebugOverlay);
+        // CustomRendering describes drawing, not keyboard ownership or the
+        // absence of a Scaleform movie. Inventory menus also carry this flag.
+        // Native cursor/HUD/fader layers have no input role, do not pause, and
+        // are persistent, cursor-assigned or saving-compatible render layers.
+        const bool passive = !inputRole && !menu->PausesGame() && !menu->InventoryItemMenu() &&
+            !menu->ApplicationMenu() && (menu->AlwaysOpen() || menu->AssignCursorToRenderer() ||
+                (menu->CustomRendering() && menu->AllowSaving()));
+        if (passive) continue;
+        const bool ownsInput = inputRole || menu->InventoryItemMenu() || menu->PausesGame() ||
+            menu->ApplicationMenu() || menu->CustomRendering();
         if (!ownsInput) continue;
         std::string name;
         for (const auto& entry : ui.menuMap)
@@ -86,9 +96,9 @@ std::string Target() {
     auto menus = Snapshot(*ui);
     const auto top = Top(menus);
     if (!top) return {};
-    // Do not activate an underlying stale field while a dialog or custom
-    // renderer owns input. Unrecognized frameworks remain available via F8.
-    if (top->name.empty() || !top->movie || top->menu->CustomRendering()) return {};
+    // A top owner without a supported movie/field blocks stale focus below.
+    // CustomRendering alone must not reject a real Scaleform editable field.
+    if (top->name.empty() || !top->movie) return {};
     const auto path = Field(*top->movie);
     if (path.empty() || Prisma::OwnsInput() || controls->GetRuntimeData().textEntryCount <= 0) return {};
     // AS queries may synchronously close/recreate a menu or open a dialog.

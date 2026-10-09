@@ -1,0 +1,7 @@
+0.3.12-beta.5
+
+Fix a SkyUI automatic-activation regression: CustomRendering does not mean a menu lacks Scaleform input. Detect actual editable fields in custom-rendered item menus, and distinguish passive cursor/HUD/fader layers from input owners.
+修复 SkyUI 聚焦搜索框后无法自动开启的回退问题：CustomRendering 不代表没有 Scaleform 输入。恢复自定义绘制物品菜单的真实文本焦点检测，并区分光标/HUD/淡入淡出等被动绘制层与输入归属界面。
+
+Keep framework-based detection, optional automatic activation, Meridian support, Prisma native passthrough and Modex Esc cleanup. Add native item-menu flags/depths and realistic overlay stacks to regression checks.
+保留按框架检测、可选自动开启、Meridian 支持、Prisma 原生输入避让和 Modex Esc 清理；回归检查新增原版物品菜单标记/深度及真实覆盖层组合。

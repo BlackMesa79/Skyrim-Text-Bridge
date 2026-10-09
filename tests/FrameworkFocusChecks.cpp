@@ -45,15 +45,22 @@ struct GFxMovieView {
     }
 };
 struct IMenu {
-    enum class Context { kNone, kGameplay, kCursor, kDebugOverlay, kMenuMode };
+    enum class Context { kNone, kGameplay, kCursor, kDebugOverlay, kMenuMode, kItemMenu };
     struct Input { Context value = Context::kMenuMode; Context get() const { return value; } } inputContext;
     bool onStack = true, usesMenu = true, modal = false, custom = false;
+    bool pauses = false, inventory = false, application = false, always = false, assignCursor = false, saving = false;
     int depthPriority = 3;
     GPtr<GFxMovieView> uiMovie;
     bool OnStack() const { return onStack; }
     bool UsesMenuContext() const { return usesMenu; }
     bool Modal() const { return modal; }
     bool CustomRendering() const { return custom; }
+    bool PausesGame() const { return pauses; }
+    bool InventoryItemMenu() const { return inventory; }
+    bool ApplicationMenu() const { return application; }
+    bool AlwaysOpen() const { return always; }
+    bool AssignCursorToRenderer() const { return assignCursor; }
+    bool AllowSaving() const { return saving; }
 };
 struct ControlMap {
     struct Data { int textEntryCount{}; } data;
@@ -129,6 +136,41 @@ int main() {
     check(ScaleformFocus::Target().empty(), "blur ends target");
     movie->focus = RE::GFxValue(field.c_str()); ui.Clear(); ui.Add("InventoryMenu", menu);
     check(ScaleformFocus::Target().find("InventoryMenu") != std::string::npos, "SkyUI remains supported");
+    // Real native flags/depths from the pinned CommonLib menu headers, rather
+    // than assuming every Scaleform owner has a menu context and no custom draw.
+    for (const auto* name : {"InventoryMenu", "MagicMenu", "ContainerMenu", "BarterMenu"}) {
+        ui.Clear();
+        auto item = std::make_shared<RE::IMenu>(); item->uiMovie = movie;
+        item->custom = item->pauses = item->inventory = true; item->depthPriority = 0;
+        item->usesMenu = std::string_view(name) != "InventoryMenu";
+        item->inputContext.value = item->usesMenu ? RE::IMenu::Context::kItemMenu : RE::IMenu::Context::kNone;
+        ui.Add(name, item);
+        auto detected = ScaleformFocus::Target();
+        check(detected.find(name) != std::string::npos, "native item menu CustomRendering preserves Scaleform capability");
+        auto cursor = std::make_shared<RE::IMenu>();
+        cursor->usesMenu = false; cursor->inputContext.value = RE::IMenu::Context::kNone;
+        cursor->custom = cursor->saving = true; cursor->depthPriority = 13; ui.Add("Cursor Menu", cursor);
+        check(ScaleformFocus::Target() == detected, "native cursor depth 13 custom draw with no movie stays passive");
+        auto hud = std::make_shared<RE::IMenu>(*cursor);
+        hud->always = hud->assignCursor = true; hud->depthPriority = 2; ui.Add("HUD Menu", hud);
+        auto fader = std::make_shared<RE::IMenu>(*cursor);
+        fader->always = true; fader->depthPriority = 3; ui.Add("Fader Menu", fader);
+        check(ScaleformFocus::Target() == detected, "native HUD and fader don't mask depth zero item fields");
+        check(FrameworkFocus::Begin(FrameworkFocus::Current()), "native stack passes activation recheck");
+        auto blocker = std::make_shared<RE::IMenu>(*cursor);
+        blocker->modal = true; blocker->depthPriority = 14; ui.Add("OtherAuthor.Dialog", blocker);
+        check(ScaleformFocus::Target().empty(), "modal role overrides passive-looking render flags");
+        blocker->modal = false; blocker->pauses = true; blocker->always = true;
+        check(ScaleformFocus::Target().empty(), "pausing loading-style layer blocks stale focus");
+        blocker->pauses = false; blocker->application = true;
+        check(ScaleformFocus::Target().empty(), "application ownership overrides passive-looking flags");
+        blocker->onStack = false;
+        movie->focus = RE::GFxValue("");
+        check(ScaleformFocus::Target().empty(), "native custom-rendered menu without field stays inactive");
+        movie->focus = RE::GFxValue(field.c_str());
+        movie->onQuery = [&] { blocker->onStack = true; };
+        check(ScaleformFocus::Target().empty(), "new owner during native stack query invalidates focus");
+    }
     ui.Clear(); ui.Add("AnotherAuthor.CustomEditor", menu);
     const auto custom = ScaleformFocus::Target();
     check(custom.find("AnotherAuthor.CustomEditor") != std::string::npos, "unknown custom Scaleform menu needs no whitelist");

@@ -1,6 +1,6 @@
 # Skyrim Text Bridge
 
-**Local test update — 0.3.12-beta.4 / 本地测试更新。** Routes optional automatic input by UI framework. Scaleform uses actual focused editable fields across registered open input menus, with no menu-name whitelist. Meridian retains its framework-wide field detection; Prisma retains native input. Independent ImGui interfaces such as Modex remain manual. Keeps beta.3 Esc/TSF fixes and the ImGui HUD. **SKSE Menu Framework and a configured Chinese font are required.** See [test notes](release-materials/0.3.12-beta.4/TESTING.md) and [framework design](FRAMEWORK-INPUT.md); the new binary needs game testing. Stable 0.3.11 and earlier test ZIPs remain available.
+**Local test update — 0.3.12-beta.5 / 本地测试更新。** Fixes beta.4 SkyUI automatic activation by correcting CustomRendering and passive overlay ownership. Routes optional automatic input by UI framework. Scaleform uses actual focused editable fields across registered open input menus, with no menu-name whitelist. Meridian retains its framework-wide field detection; Prisma retains native input. Independent ImGui interfaces such as Modex remain manual. Keeps beta.3 Esc/TSF fixes and the ImGui HUD. **SKSE Menu Framework and a configured Chinese font are required.** See [test notes](release-materials/0.3.12-beta.5/TESTING.md) and [framework design](FRAMEWORK-INPUT.md); the new binary needs game testing. Stable 0.3.11 and earlier test ZIPs remain available.
 
 **0.3.11 / 正式打包版本。** Uses CommonLibSSE-NG **10.1.0**, V5 Address Library support and version-aware character queues. Exact runtime whitelist: **1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104**. The user confirmed normal local **1.6.1170** operation and approved normal-release packaging on 2026-10-05. 1.5.97 and both 1.7 runtimes still await game testing. See [validation notes](VALIDATION-0.3.11.md).
 
@@ -54,7 +54,7 @@ F8 输入模式中，普通键的按下、持续和松开事件不会送入下�
 
 鼠标与退格、Enter、Tab、方向键、Home/End、Page Up/Down、Delete 保留；选词期间这些编辑键由输入法使用。绑定在编辑键上的其他热键仍可能触发。独立轮询键盘、较早的输入钩子不保证能被拦截。Prisma 原生输入不应用此过滤。
 
-自动开启要求框架提供可靠焦点信号，不自动识别所有文本框，排除密码、只读、隐藏和禁用字段。Scaleform 同时要求游戏文本输入许可，不能仅凭残留的许可计数开启；未知自定义渲染器不回退到其底下的字段。非选词期间允许 Ctrl+A/C/X/V 通过，具体编辑操作由目标界面实现。部分 IME 不提供 IMM 候选列表；其他键盘布局及死键组合仍待验证。
+自动开启要求框架提供可靠焦点信号，不自动识别所有文本框，排除密码、只读、隐藏和禁用字段。Scaleform 同时要求游戏文本输入许可，不能仅凭残留的许可计数开启；上层输入归属者缺少有效字段时不回退到底下的字段。非选词期间允许 Ctrl+A/C/X/V 通过，具体编辑操作由目标界面实现。部分 IME 不提供 IMM 候选列表；其他键盘布局及死键组合仍待验证。
 
 ## Build / 开发
 
