@@ -156,8 +156,7 @@ svg = svg.replace('y="435"', 'y="368"').replace('ni hao tian ji', 'CHINESE / JAP
 svg = svg.replace('<text x="1700" y="590" fill="#f4f1e8" font-size="92" font-family="Microsoft YaHei, sans-serif" letter-spacing="8">你好，天际</text>', '''<text x="1700" y="493" fill="#f4f1e8" font-size="74" font-family="Microsoft YaHei, sans-serif">你好，天际</text>
   <text x="1700" y="590" fill="#f4f1e8" font-size="70" font-family="Yu Gothic, Meiryo, sans-serif">こんにちは</text>
   <text x="1700" y="688" fill="#f4f1e8" font-size="70" font-family="Malgun Gothic, sans-serif">안녕하세요</text>''')
-svg = svg.replace('</svg>', '''<text x="2372" y="220" text-anchor="end" fill="#d5af6c" font-size="32" font-family="Segoe UI, sans-serif" letter-spacing="5">0.4.1</text>
-<text x="170" y="1265" fill="#728180" font-size="28" font-family="Segoe UI, sans-serif" letter-spacing="3">IN-GAME CANDIDATES  /  OPTIONAL AUTO ACTIVATION</text>
+svg = svg.replace('</svg>', '''<text x="170" y="1265" fill="#728180" font-size="28" font-family="Segoe UI, sans-serif" letter-spacing="3">IN-GAME CANDIDATES  /  OPTIONAL AUTO ACTIVATION</text>
 </svg>''')
 (out / 'SkyrimTextBridge-cover.svg').write_text(svg, encoding='utf-8')
 print(f'Generated 0.4.1 materials. Summary: EN {len(summary_en)}, ZH {len(summary_zh)}, combined {len(summary_en + summary_zh)+2} characters.')
