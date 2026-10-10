@@ -1,6 +1,10 @@
 # Skyrim Text Bridge
 
-**Release — 0.4.0 / 正式版。** Promotes the user-validated beta.8 input behavior: in-game ImGui candidates, framework-based automatic focus detection, console opt-out, direct English typing and Modex Esc cleanup. Emoji display is not supported. **SKSE Menu Framework with a configured Chinese font and Media Keys Fix SKSE are required.** See [bilingual description](release-materials/0.4.0/description-en-zh.md), [release validation](VALIDATION-0.4.0.md) and [framework design](FRAMEWORK-INPUT.md). Older packages are retained; avoid beta.6 due to its startup deadlock.
+**Current development build: 0.4.1-beta.1.** Shorter settings help, English/Simplified Chinese/Japanese/Korean UI following the Windows display language by default, and initial Japanese/Korean IME handling. The selected IME does not change the UI language. A manual language override is optional. Japanese/Korean composition fixtures and isolated TSF checks pass; actual IMEs still need game testing. See [test guide](release-materials/0.4.1-beta.1/TESTING.md) and [bilingual changelog](release-materials/0.4.1-beta.1/changelog-en-zh.txt). Stable 0.4.0 remains available.
+
+**当前开发版：0.4.1-beta.1。** 精简设置说明，默认根据 Windows 显示语言自动使用英、简中、日、韩界面；当前输入法不会改变界面语言，可选手动覆盖。补充日语/韩语输入处理，模拟组合文字及隔离 TSF 检查通过，实际输入法仍待游戏测试。日/韩显示需要在 Menu Framework 启用对应语言范围，并设置包含相应字形的主字体；字体不随包提供。
+
+**Stable release — 0.4.0 / 稳定正式版。** Promotes the user-validated beta.8 input behavior: in-game ImGui candidates, framework-based automatic focus detection, console opt-out, direct English typing and Modex Esc cleanup. Emoji display is not supported. **SKSE Menu Framework with a configured Chinese font and Media Keys Fix SKSE are required.** See [bilingual description](release-materials/0.4.0/description-en-zh.md), [release validation](VALIDATION-0.4.0.md) and [framework design](FRAMEWORK-INPUT.md). Older packages are retained; avoid beta.6 due to its startup deadlock.
 
 **Exact runtime admission: 1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104.** CommonLibSSE-NG **10.1.0**, V5 Address Library and version-aware queues are retained. All four passed 90 offline address/queue/layout checks; the latest input behavior was user-tested on **1.6.1170** and approved for release on 2026-10-09. **1.5.97, 1.7.99 and 1.7.104 still await full game validation.** This does not admit other SE/AE patches, GOG 1.6.1179 or VR.
 
@@ -19,7 +23,7 @@ A Skyrim SKSE plugin for Chinese IME input, English typing, and keyboard hotkey 
 1. 安装与游戏匹配的 SKSE64、Address Library 和 Media Keys Fix SKSE（或等效非独占键盘补丁）；DLL 接受 Skyrim **1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104**，实测状态见上方说明。
 2. 将发行 ZIP 安装到 MO2，禁用 SimpleIME。更新前退出游戏；个人 `SkyrimTextBridge.user.ini` 会保留。
 3. 点击文本框，按 **F8** 开启输入，或启用可选自动开启。进入时跟随当前输入法/键盘的中英文状态；英文布局或输入法英文状态下直接打字。可用输入法自身切换键或 **Ctrl + 空格**切换中英文，F8 关闭。Ctrl+空格切换会取消尚未选定的拼音。
-4. 安装匹配游戏的 SKSE Menu Framework，并配置中文字体（EnableChinese=true 和有效 PrimaryFont）；在默认 F1 菜单的 **Skyrim Text Bridge → 输入法与面板设置**调整开关、快捷键、自动开启、位置、颜色及背景透明度。
+4. 安装匹配游戏的 SKSE Menu Framework，并配置所需语言字体（EnableChinese/EnableJapanese/EnableKorean 与有效 PrimaryFont）；在默认 F1 菜单的 **Skyrim Text Bridge → Settings / 输入与面板**调整语言、开关、快捷键、自动开启、位置、颜色及背景透明度。界面语言默认跟随 Windows 显示语言，其他语言回退英文；没有新语言设置的旧个人 INI 也默认自动识别。语言改动下一帧更新页面，侧栏条目在重启游戏后更新。
 
 自动开启默认关闭。在设置页勾选“文本框聚焦时自动开启”并保存，或在 `SkyrimTextBridge.user.ini` 的 `[Input]` 下设置 `AutoEnable=1`。按 UI 框架识别：Scaleform 不再限定菜单名称，而是检查已打开的最上层输入菜单、实际可编辑焦点与可见性，覆盖符合条件的 SkyUI、RaceMenu 及其他 Scaleform 界面；Meridian/Tailor 沿用框架级文本框检测。控制台明确排除自动开启，打开期间也不自动接管底下的输入框；需要中文时可按 F8 手动开启。Modex 等独立 ImGui 界面保留手动 F8，Prisma 始终避让。按自定义快捷键手动关闭后，当前焦点暂不自动重开；离开再聚焦后恢复。自动开启的会话失焦后结束，换框时清空旧会话的未提交内容。新界面的文字提交仍需实测，识别焦点不等于所有界面已经完整兼容。
 
@@ -43,7 +47,7 @@ Automatic activation is optional and off by default. Scaleform discovers focused
 | Modex / 独立 ImGui | Modex **输入支持**：F8 手动，经游戏字符通道输入；保留 Esc/关闭清理 | Modex 3.0.2 相关公开 IMenu 路径未变；其他独立 ImGui 不自动认定为兼容 |
 | Prisma UI / Outfit Wheeler | **兼容共存**：使用 Prisma 原生输入，本模组不提供输入支持、不接管 | 仅查询公开 V1 焦点接口以避让，不限制框架发行版本 |
 | Meridian UI / Tailor | **输入支持**：F8 或可选自动开启，经 View/1 与 DOM 提交文字 | 协商 `Meridian.View/1`，不限制框架发行版本 |
-| SKSE Menu Framework | 必需：ImGui HUD 面板及设置页，需要中文字体配置 | 检查所需 HUD/ImGui 导出接口；本地检查 3.18，需框架自身匹配游戏 |
+| SKSE Menu Framework | 必需：ImGui HUD 面板及设置页，需要相应中/日/韩字体配置 | 检查所需 HUD/ImGui 导出接口；本地检查 3.18，需框架自身匹配游戏 |
 | Skyrim | SKSE / CommonLib 地址与结构 | 严格限制 1.5.97、1.6.1170、1.7.99、1.7.104；未放行其他 1.7.x |
 | Media Keys Fix SKSE | 实际输入前置，提供非独占键盘环境；等效补丁可替代 | 不静态链接其 DLL |
 | SimpleIME | 使用同一输入目标 | 禁止同时启用 |

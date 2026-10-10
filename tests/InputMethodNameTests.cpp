@@ -1,6 +1,7 @@
 #include "InputMethodName.h"
 #include <iostream>
 int main() {
+    auto settings = TextBridge::Settings::Data{}; settings.language = 2; TextBridge::Settings::Set(settings);
     using namespace TextBridge::InputMethodName;
     if (Clean(L"  Microsoft Pinyin\r\n ") != L"Microsoft Pinyin") return 1;
     if (!Clean(L"\t\n").empty()) return 2;

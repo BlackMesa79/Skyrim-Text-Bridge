@@ -89,6 +89,23 @@ int main() {
     Show(owner, L"中文输入\n测试"); hasContext = false; frame(); check(texts.empty(), "framework not initialized safely skips drawing"); hasContext = true;
     Show(owner, L"中文输入\n测试");
     value = Settings::Data{}; value.enabled = false; Settings::Set(value); frame(); check(texts.empty(), "disabled mod does not render"); Settings::Set({});
+    using Localization::Key;
+    for (int locale=1;locale<=4;++locale) {
+        value=Settings::Data{};value.language=locale;Settings::Set(value);
+        const std::wstring content=std::wstring(Localization::Wide(Key::JapaneseInput))+L" · F8\n"+
+            Localization::Wide(Key::Idle)+L"\n"+Localization::Wide(Key::ImeName)+L"Microsoft IME\n> 1. 日本語\n  2. 한국어";
+        Show(owner,content);frame();
+        check(std::any_of(texts.begin(),texts.end(),[&](const auto& cmd){return cmd.text==Localization::Text(Key::JapaneseInput);}),
+              "panel title uses chosen locale");
+        check(std::any_of(texts.begin(),texts.end(),[&](const auto& cmd){return cmd.text==Localization::Text(Key::Ready);}),
+              "translated idle status receives ready style");
+        check(std::any_of(texts.begin(),texts.end(),[](const auto& cmd){return cmd.text=="日本語";}) &&
+              std::any_of(texts.begin(),texts.end(),[](const auto& cmd){return cmd.text=="한국어";}),
+              "Japanese and Hangul candidates preserve exact Unicode across interface locales");
+        Show(owner,Localization::Wide(Key::Disabled),true);frame();
+        check(texts.size()==1 && texts.front().text==Localization::Text(Key::Disabled), "translated transient exit notice");
+    }
+    Settings::Set({});
     PanelState shared;
     std::thread writer([&] { for (unsigned i = 0; i < 10000; ++i) { shared.Show(1, "title\nChinese\ncandidate", false, i); if (i % 3 == 0) shared.Hide(); } });
     bool whole = true;

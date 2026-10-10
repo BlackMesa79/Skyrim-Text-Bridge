@@ -1,5 +1,5 @@
 set_project("SkyrimTextBridge")
-set_version("0.4.0")
+set_version("0.4.1")
 set_languages("cxx23")
 set_config("skyrim_se", true)
 set_config("skyrim_ae", true)

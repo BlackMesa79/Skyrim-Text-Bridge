@@ -9,6 +9,7 @@
 #undef IM_COL32_BLACK_TRANS
 #include <imgui.h>
 #include <fstream>
+#include <iostream>
 namespace TextBridge::ImePanel {
 namespace {
 std::uint64_t TestNow() { return 100; }
@@ -27,16 +28,26 @@ void PreviewMeasure(ImGuiMCP::ImVec2* out, ImGuiMCP::ImFont* font, float size, f
 }
 }
 int main(int argc,char** argv) {
-    if(argc!=3)return 1;
+    if(argc!=3 && argc!=4)return 1;
     ImGui::CreateContext(); auto& io=ImGui::GetIO(); io.IniFilename=nullptr; io.DisplaySize={1920,1080}; io.DeltaTime=1.f/60;
     ImFontConfig config; config.OversampleH=1; config.OversampleV=1;
-    static const ::ImWchar ranges[]={0x20,0xFF,0x2000,0x206F,0x3000,0x30FF,0x4E00,0x9FFF,0};
+    static const ::ImWchar ranges[]={0x20,0xFF,0x2000,0x206F,0x3000,0x30FF,0x3130,0x318F,0x4E00,0x9FFF,0xAC00,0xD7A3,0xFF00,0xFFEF,0};
     if(!io.Fonts->AddFontFromFileTTF(argv[1],24,&config,ranges))return 2;
     unsigned char* pixels{}; int width{},height{}; io.Fonts->GetTexDataAsRGBA32(&pixels,&width,&height); io.Fonts->SetTexID(reinterpret_cast<::ImTextureID>(1));
     using namespace TextBridge::ImePanel;
     backend.context=PreviewContext; backend.viewport=PreviewViewport; backend.drawList=PreviewDrawList; backend.font=PreviewFont; backend.glyph=PreviewGlyph; backend.rect=PreviewRect; backend.fill=PreviewFill; backend.text=PreviewText; backend.measure=PreviewMeasure;
-    TextBridge::Settings::Data value; value.opacity=.55f; value.x=.025f; value.y=.065f; TextBridge::Settings::Set(value);
-    Show(reinterpret_cast<HWND>(1),L"中文输入 · F8 关闭\nhaha\n当前输入法：微软拼音\n> 1. 哈哈\n  2. 哈哈大笑\n  3. 蛤蛤\n  4. O(∩_∩)O哈哈~\n  5. 好啊好啊\n  6. Hello");
+    TextBridge::Settings::Data value; value.opacity=.55f; value.x=.025f; value.y=.065f;
+    value.language=argc==4?std::stoi(argv[3]):2; TextBridge::Settings::Set(value);
+    using namespace TextBridge::Localization;
+    const auto title = value.language==3 ? Key::JapaneseInput : value.language==4 ? Key::KoreanInput : Key::ChineseInput;
+    const std::wstring sample = value.language==3 ? L"にほんご\n" : value.language==4 ? L"한국어\n" : L"haha\n";
+    const std::wstring candidates = value.language==3 ? L"\n> 1. 日本語\n  2. にほんご\n  3. ニホンゴ\n  4. Hello" :
+        value.language==4 ? L"\n> 1. 한국어\n  2. 한글\n  3. 한국\n  4. Hello" : L"\n> 1. 哈哈\n  2. 哈哈大笑\n  3. 蛤蛤\n  4. Hello";
+    const std::wstring content = std::wstring(Wide(title))+L" · F8 "+Wide(Key::Close)+L"\n"+sample+Wide(Key::ImeName)+L"Microsoft IME"+candidates;
+    for (wchar_t c:content) if(c>=32 && !io.Fonts->Fonts[0]->FindGlyphNoFallback(static_cast<::ImWchar>(c))) {
+        std::cerr << "Preview font lacks U+" << std::hex << static_cast<unsigned>(c) << '\n'; return 3;
+    }
+    Show(reinterpret_cast<HWND>(1),content);
     ImGui::NewFrame(); TextBridge::ImePanel::Render(); ImGui::Render(); const auto data=ImGui::GetDrawData();
     std::ofstream file(argv[2],std::ios::binary); auto write=[&](const auto& v){file.write(reinterpret_cast<const char*>(&v),sizeof(v));};
     write(std::uint32_t(1));write(std::uint64_t(1));write(width);write(height);file.write(reinterpret_cast<const char*>(pixels),width*height*4);

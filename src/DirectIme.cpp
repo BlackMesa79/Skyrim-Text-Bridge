@@ -5,12 +5,14 @@
 #include "Settings.h"
 #include "InputMethodName.h"
 #include "ImeLanguage.h"
+#include "Localization.h"
 #include <imm.h>
 #include <commctrl.h>
 #include <atomic>
 #include <deque>
 #include <mutex>
 #include <algorithm>
+#include <cstring>
 
 namespace TextBridge::DirectIme {
 namespace {
@@ -34,13 +36,23 @@ std::deque<std::pair<char16_t, ULONGLONG>> translatedEcho;
 bool detaching = false;
 std::wstring inputMethodName;
 ULONGLONG nameCheckedAt{};
+DWORD nativeConversion{}, nativeSentence{};
+LANGID nativeLanguage{};
+bool haveNativeConversion{};
 #ifdef TEXTBRIDGE_IME_TEST
 unsigned tsfModeChanges{};
 bool tsfEnglish{};
 bool testNativeState = true;
+LANGID testKeyboardLanguage = MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED);
+LANGID KeyboardLanguage() { return testKeyboardLanguage; }
 void SetThreadMode(bool value) { ++tsfModeChanges; tsfEnglish = value; testNativeState = !value; }
 #else
-void SetThreadMode(bool value) { ImeLanguage::SetTsfMode(value); }
+LANGID KeyboardLanguage() { return LOWORD(reinterpret_cast<ULONG_PTR>(GetKeyboardLayout(0))); }
+void SetThreadMode(bool value) {
+    const auto conversion = !value && haveNativeConversion && nativeLanguage == KeyboardLanguage() ?
+        std::optional<DWORD>(nativeConversion) : std::nullopt;
+    ImeLanguage::SetTsfMode(value, conversion);
+}
 #endif
 #ifdef TEXTBRIDGE_IME_TEST
 std::wstring testInputMethodName = L"测试输入法";
@@ -50,6 +62,29 @@ bool Foreground() { return testForeground; }
 #else
 std::wstring ReadInputMethodName() { return InputMethodName::Read(); }
 bool Foreground() { return GetForegroundWindow() == hwnd; }
+#endif
+// Keep the production parser/message flow testable with Japanese and Korean
+// IMM payloads; actual Windows IME engines still require game validation.
+#ifdef TEXTBRIDGE_IME_TEST
+std::u16string testComposition, testResult;
+std::vector<std::byte> testCandidates;
+LONG CompositionString(DWORD index, void* buffer, DWORD capacity) {
+    const auto& value = index == GCS_RESULTSTR ? testResult : testComposition;
+    const auto bytes = static_cast<DWORD>(value.size() * sizeof(char16_t));
+    if (!buffer) return bytes;
+    if (capacity < bytes) return IMM_ERROR_GENERAL;
+    if (bytes) std::memcpy(buffer, value.data(), bytes);
+    return bytes;
+}
+DWORD CandidateList(void* buffer, DWORD capacity) {
+    if (!buffer) return static_cast<DWORD>(testCandidates.size());
+    if (capacity < testCandidates.size()) return 0;
+    if (!testCandidates.empty()) std::memcpy(buffer, testCandidates.data(), testCandidates.size());
+    return static_cast<DWORD>(testCandidates.size());
+}
+#else
+LONG CompositionString(DWORD index, void* buffer, DWORD capacity) { return ImmGetCompositionStringW(context, index, buffer, capacity); }
+DWORD CandidateList(void* buffer, DWORD capacity) { return ImmGetCandidateListW(context, 0, static_cast<CANDIDATELIST*>(buffer), capacity); }
 #endif
 bool Allowed() { return enabled && Settings::Get().enabled && Foreground() && !Prisma::OwnsInput(); }
 bool RefreshInputMethodName(bool force = false) {
@@ -66,10 +101,10 @@ void Enqueue(std::u16string_view value) {
     if (text.size() + decoded.size() <= MaxTextUnits) text.insert(text.end(), decoded.begin(), decoded.end());
 }
 std::wstring ReadComposition() {
-    LONG size = ImmGetCompositionStringW(context, GCS_COMPSTR, nullptr, 0);
+    LONG size = CompositionString(GCS_COMPSTR, nullptr, 0);
     if (size <= 0 || size > 8192 || size % 2) return {};
     std::wstring result(size / 2, L'\0');
-    return ImmGetCompositionStringW(context, GCS_COMPSTR, result.data(), size) == size ? result : L"";
+    return CompositionString(GCS_COMPSTR, result.data(), size) == size ? result : L"";
 }
 bool NativeMode() {
     // IMM open status is not meaningful for a plain English keyboard layout.
@@ -81,25 +116,29 @@ bool NativeMode() {
     if (!ImmIsIME(layout) && PRIMARYLANGID(LOWORD(reinterpret_cast<ULONG_PTR>(layout))) != LANG_CHINESE &&
         PRIMARYLANGID(LOWORD(reinterpret_cast<ULONG_PTR>(layout))) != LANG_JAPANESE &&
         PRIMARYLANGID(LOWORD(reinterpret_cast<ULONG_PTR>(layout))) != LANG_KOREAN) return false;
-    if (const auto native = ImeLanguage::TsfNativeMode()) return *native;
+    if (const auto native = ImeLanguage::TsfNativeMode(KeyboardLanguage())) return *native;
 #endif
     DWORD conversion{}, sentence{};
-    return ImmGetOpenStatus(context) && ImmGetConversionStatus(context, &conversion, &sentence) && (conversion & IME_CMODE_NATIVE);
+    const auto conversionState = ImmGetConversionStatus(context, &conversion, &sentence) ? std::optional<DWORD>(conversion) : std::nullopt;
+    return ImeLanguage::NativeState(KeyboardLanguage(), bool(ImmGetOpenStatus(context)), conversionState).value_or(false);
 }
 bool ObserveMode() {
     if (modeRequested || composing || changingMode) return false;
     const bool currentEnglish = !NativeMode();
     const bool changed = english.exchange(currentEnglish) != currentEnglish;
     appliedEnglish = currentEnglish;
+    if (!currentEnglish && context && ImmGetConversionStatus(context, &nativeConversion, &nativeSentence)) {
+        nativeLanguage = KeyboardLanguage(); haveNativeConversion = true;
+    }
     return changed;
 }
 std::wstring CandidateText() {
     std::wstring result;
-    const DWORD size = ImmGetCandidateListW(context, 0, nullptr, 0);
+    const DWORD size = CandidateList(nullptr, 0);
     if (size < sizeof(CANDIDATELIST) || size > 1024 * 1024) return result;
     std::vector<DWORD> storage((size + 3) / 4);
     auto list = reinterpret_cast<CANDIDATELIST*>(storage.data());
-    DWORD copied = ImmGetCandidateListW(context, 0, list, size);
+    DWORD copied = CandidateList(list, size);
     constexpr size_t offset = offsetof(CANDIDATELIST, dwOffset);
     if (copied < sizeof(CANDIDATELIST) || copied > size || list->dwCount > (copied - offset) / sizeof(DWORD)) return result;
     const auto start = std::min(list->dwPageStart, list->dwCount);
@@ -119,12 +158,16 @@ std::wstring CandidateText() {
 void UpdatePanel() {
     auto composition = ReadComposition();
     composing = !composition.empty();
-    std::wstring display = (english ? std::wstring(L"英文输入 · ") : std::wstring(L"中文输入 · ")) + Settings::KeyName(Settings::Get().hotkey) + L" 关闭";
-    display += L"\n" + (composition.empty() ? std::wstring(L"请在当前输入框打字") : composition);
+    using namespace Localization;
+    std::wstring display = std::wstring(Wide(InputTitle(english, KeyboardLanguage()))) + L" · " + Settings::KeyName(Settings::Get().hotkey) + L" " + Wide(Key::Close);
+    display += L"\n" + (composition.empty() ? std::wstring(Wide(Key::Idle)) : composition);
     display += L"\n" + inputMethodName;
     auto candidates = CandidateText();
-    if (composition.empty()) display += L"\n跟随输入法中英文状态 · Esc 退出";
-    if (!composition.empty() && candidates.empty()) display += L"\n输入法未提供候选列表";
+    if (composition.empty()) display += L"\n" + std::wstring(Wide(Key::ModeHint));
+    // Hangul syllable composition normally has no candidate list until Hanja
+    // conversion is requested. Its absence is not an input problem.
+    if (!composition.empty() && candidates.empty() && PRIMARYLANGID(KeyboardLanguage()) != LANG_KOREAN)
+        display += L"\n" + std::wstring(Wide(Key::NoCandidates));
     ImePanel::Show(hwnd, display + candidates);
 }
 LRESULT CALLBACK Subclass(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
@@ -135,6 +178,7 @@ void Detach(bool tip = false) {
     enabled = false; composing = false; highSurrogate = 0; translatedEcho.clear(); Clear();
     english = false; appliedEnglish = false; modeRequested = false; cancelComposition = false;
     inputMethodName.clear(); nameCheckedAt = 0;
+    haveNativeConversion = false; nativeLanguage = 0;
     bool switchGameplay = false;
     const bool owned = attached.exchange(false);
     if (owned) {
@@ -162,7 +206,7 @@ void Detach(bool tip = false) {
     // Context destruction can notify a TSF-backed IME too. Write its final
     // gameplay mode only after the old association is completely gone.
     if (switchGameplay && Foreground() && !Prisma::OwnsInput()) SetThreadMode(true);
-    if (tip && Foreground() && !Prisma::OwnsInput()) ImePanel::Show(hwnd, L"输入法已关闭", true);
+    if (tip && Foreground() && !Prisma::OwnsInput()) ImePanel::Show(hwnd, Localization::Wide(Localization::Key::Disabled), true);
     else ImePanel::Hide();
     detaching = false;
 }
@@ -173,14 +217,23 @@ void Sync() {
         auto previous = ImmGetContext(hwnd);
         context = previous;
         const bool initialEnglish = !NativeMode();
+        DWORD initialConversion{}, initialSentence{};
+        const bool haveConversion = previous && ImmGetConversionStatus(previous, &initialConversion, &initialSentence);
+        if (!initialEnglish && haveConversion) {
+            nativeConversion = initialConversion; nativeSentence = initialSentence;
+            nativeLanguage = KeyboardLanguage(); haveNativeConversion = true;
+        }
         if (previous) ImmReleaseContext(hwnd, previous);
         context = nullptr;
         context = ImmCreateContext();
-        if (!context) { Detach(); ImePanel::Show(hwnd, L"输入法启动失败", true); return; }
+        if (!context) { Detach(); ImePanel::Show(hwnd, Localization::Wide(Localization::Key::StartFailed), true); return; }
         attached = true;
         saved = ImmAssociateContext(hwnd, context);
         english = initialEnglish; appliedEnglish = initialEnglish;
         changingMode = true;
+        // Preserve Japanese kana/fullwidth and Korean conversion flags when
+        // replacing the window context; never select another IME/profile.
+        if (haveConversion) ImmSetConversionStatus(context, initialConversion, initialSentence);
         ImeLanguage::SetImmMode(context, appliedEnglish);
         SetThreadMode(appliedEnglish);
         changingMode = false;
@@ -193,9 +246,14 @@ void Sync() {
     }
     if (modeRequested.exchange(false)) {
         changingMode = true;
+        if (!appliedEnglish && ImmGetConversionStatus(context, &nativeConversion, &nativeSentence)) {
+            nativeLanguage = KeyboardLanguage(); haveNativeConversion = true;
+        }
         ImmNotifyIME(context, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
         composing = false; highSurrogate = 0; translatedEcho.clear();
         appliedEnglish = english.load();
+        if (!appliedEnglish && haveNativeConversion && nativeLanguage == KeyboardLanguage())
+            ImmSetConversionStatus(context, nativeConversion, nativeSentence);
         ImeLanguage::SetImmMode(context, appliedEnglish);
         SetThreadMode(appliedEnglish);
         changingMode = false;
@@ -218,7 +276,7 @@ LRESULT CALLBACK Subclass(HWND window, UINT message, WPARAM w, LPARAM l, UINT_PT
         if (message == WM_CHAR && w == VK_ESCAPE) return 0;
         if (message == WM_INPUTLANGCHANGE) {
             const auto result = DefSubclassProc(window, message, w, l);
-            if (attached && Allowed()) { modeRequested = false; translatedEcho.clear(); ObserveMode(); RefreshInputMethodName(true); UpdatePanel(); }
+            if (attached && Allowed()) { modeRequested = false; haveNativeConversion = false; translatedEcho.clear(); ObserveMode(); RefreshInputMethodName(true); UpdatePanel(); }
             return result;
         }
         if (message == WM_KEYDOWN && ObserveMode()) UpdatePanel();
@@ -248,10 +306,10 @@ LRESULT CALLBACK Subclass(HWND window, UINT message, WPARAM w, LPARAM l, UINT_PT
         if (message == WM_IME_ENDCOMPOSITION) { composing = false; UpdatePanel(); return 0; }
         if (message == WM_IME_COMPOSITION) {
             if (l & GCS_RESULTSTR) {
-                const LONG bytes = ImmGetCompositionStringW(context, GCS_RESULTSTR, nullptr, 0);
+                const LONG bytes = CompositionString(GCS_RESULTSTR, nullptr, 0);
                 if (bytes > 0 && bytes <= MaxTextUnits * 2 && bytes % 2 == 0) {
                     std::u16string value(bytes / 2, u'\0');
-                    if (ImmGetCompositionStringW(context, GCS_RESULTSTR, value.data(), bytes) == bytes) Enqueue(value);
+                    if (CompositionString(GCS_RESULTSTR, value.data(), bytes) == bytes) Enqueue(value);
                 }
             }
             UpdatePanel(); return 0;

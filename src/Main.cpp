@@ -192,7 +192,7 @@ void OnMessage(SKSE::MessagingInterface::Message* m) {
         SKSE::AllocTrampoline(32);
         previousDispatch = SKSE::GetTrampoline().write_call<5>(call, InputHook);
         installed = true;
-        SKSE::log::info("Text Bridge 0.4.0; framework focus routing (Scaleform/Meridian, Prisma native); ImGui HUD panel; CommonLibSSE-NG 10.1.0; input hook installed on {} at {:X}", REL::Module::get().version().string(), call);
+        SKSE::log::info("Text Bridge 0.4.1-beta.1; multilingual CJK input and UI; framework focus routing; ImGui HUD panel; input hook installed on {} at {:X}", REL::Module::get().version().string(), call);
         if (auto ui = RE::UI::GetSingleton()) ui->AddEventSink(new MenuEvents);
         SKSE::log::info("Direct IME installed: toggle scan code {}; Prisma native passthrough", TextBridge::Settings::Get().hotkey);
     }
@@ -224,6 +224,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse) {
         auto value=TextBridge::Settings::Get();
         value.autoEnable=GetPrivateProfileIntW(L"Input",L"AutoEnable",0,config.c_str())!=0;
         value.hotkey=GetPrivateProfileIntW(L"Input",L"HotkeyScanCode",0x42,config.c_str());
+        value.language=GetPrivateProfileIntW(L"Interface",L"Language",0,config.c_str());
         TextBridge::Settings::Set(value);
     }
     return SKSE::GetMessagingInterface()->RegisterListener(OnMessage);

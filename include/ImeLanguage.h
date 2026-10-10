@@ -4,9 +4,18 @@
 #include <msctf.h>
 #include <optional>
 namespace TextBridge::ImeLanguage {
+// Korean IMEs use the conversion bit for Hangul/Latin; IMM open status is not
+// a reliable mode gate. Japanese can expose open/closed without conversion data.
+inline std::optional<bool> NativeState(LANGID language, std::optional<bool> open, std::optional<DWORD> conversion) {
+    if (PRIMARYLANGID(language) == LANG_KOREAN && conversion) return (*conversion & IME_CMODE_NATIVE) != 0;
+    if (open && !*open) return false;
+    if (conversion) return (*conversion & IME_CMODE_NATIVE) != 0;
+    if (PRIMARYLANGID(language) == LANG_JAPANESE && open) return *open;
+    return {};
+}
 // Read only the existing window-thread manager; absence is not an English
 // signal. Modern TSF IMEs may expose state without matching IMM conversion.
-inline std::optional<bool> TsfNativeMode() {
+inline std::optional<bool> TsfNativeMode(LANGID language = LOWORD(reinterpret_cast<ULONG_PTR>(GetKeyboardLayout(0)))) {
     using GetManager = HRESULT(WINAPI*)(ITfThreadMgr**);
     auto module = GetModuleHandleW(L"msctf.dll");
     auto get = module ? reinterpret_cast<GetManager>(GetProcAddress(module, "TF_GetThreadMgr")) : nullptr;
@@ -27,8 +36,8 @@ inline std::optional<bool> TsfNativeMode() {
         };
         const auto open = read(GUID_COMPARTMENT_KEYBOARD_OPENCLOSE);
         const auto conversion = read(GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION);
-        if (open && !*open) result = false;
-        else if (conversion) result = (*conversion & IME_CMODE_NATIVE) != 0;
+        result = NativeState(language, open ? std::optional<bool>(*open != 0) : std::nullopt,
+            conversion ? std::optional<DWORD>(static_cast<DWORD>(*conversion)) : std::nullopt);
         compartments->Release();
     }
     manager->Release(); return result;
@@ -38,7 +47,7 @@ inline DWORD Conversion(DWORD current, bool english) {
 }
 // Use the existing window-thread TSF manager. Do not Activate/Deactivate it,
 // select another keyboard profile, or acquire another UI's document focus.
-inline void SetTsfMode(bool english) {
+inline void SetTsfMode(bool english, std::optional<DWORD> nativeConversion = {}) {
     using GetManager = HRESULT(WINAPI*)(ITfThreadMgr**);
     auto module = GetModuleHandleW(L"msctf.dll");
     auto get = module ? reinterpret_cast<GetManager>(GetProcAddress(module, "TF_GetThreadMgr")) : nullptr;
@@ -55,7 +64,8 @@ inline void SetTsfMode(bool english) {
         if (SUCCEEDED(compartments->GetCompartment(GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION, &value))) {
             VARIANT mode{};
             if (SUCCEEDED(value->GetValue(&mode)) && mode.vt == VT_I4) {
-                mode.lVal = static_cast<LONG>(Conversion(static_cast<DWORD>(mode.lVal), english));
+                const DWORD source = !english && nativeConversion ? *nativeConversion : static_cast<DWORD>(mode.lVal);
+                mode.lVal = static_cast<LONG>(Conversion(source, english));
                 value->SetValue(client, &mode);
             }
             VariantClear(&mode); value->Release();

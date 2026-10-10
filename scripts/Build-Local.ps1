@@ -53,9 +53,9 @@ $tsfStatus = Join-Path $outputDir 'tsf-check-status.txt'
 if (Test-Path -LiteralPath $tsfStatus) { Remove-Item -LiteralPath $tsfStatus }
 & "$outputDir\ImeLanguageTests.exe" $tsfStatus
 if ($LASTEXITCODE) { throw 'Real TSF mode tests failed' }
-if ((Get-Content -LiteralPath "$outputDir\tsf-check-status.txt" -Tail 1) -ne 'COMPLETED 14') { throw 'TSF test process exited before all checks completed; inspect build/native/tsf-check-status.txt' }
-Write-Output '14 real isolated TSF mode checks completed (no Sogou or game validation)'
-& cl @common tests/InputMethodNameTests.cpp "/Fe$outputDir\InputMethodNameTests.exe" "/Fo$outputDir\InputMethodNameTests.obj" /link user32.lib imm32.lib ole32.lib oleaut32.lib uuid.lib /INCREMENTAL:NO
+if ((Get-Content -LiteralPath "$outputDir\tsf-check-status.txt" -Tail 1) -ne 'COMPLETED 20') { throw 'TSF test process exited before all checks completed; inspect build/native/tsf-check-status.txt' }
+Write-Output '20 real isolated TSF mode checks completed (no actual IME or game validation)'
+& cl @common tests/InputMethodNameTests.cpp src/Settings.cpp "/Fe$outputDir\InputMethodNameTests.exe" "/Fo$outputDir\\" /link user32.lib imm32.lib ole32.lib oleaut32.lib uuid.lib /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'IME name test compilation failed' }
 & "$outputDir\InputMethodNameTests.exe"
 if ($LASTEXITCODE) { throw 'IME name tests failed' }
@@ -68,6 +68,10 @@ New-Item -ItemType Directory -Path (Join-Path $projectRoot 'build\preview') -For
 if ($LASTEXITCODE) { throw 'Settings checks compilation failed' }
 & "$outputDir\SettingsChecks.exe"
 if ($LASTEXITCODE) { throw 'Settings and alpha checks failed' }
+& cl @common tests/LocalizationTests.cpp "/Fe$outputDir\LocalizationTests.exe" "/Fo$outputDir\LocalizationTests.obj" /link user32.lib imm32.lib ole32.lib oleaut32.lib uuid.lib /INCREMENTAL:NO
+if ($LASTEXITCODE) { throw 'Localization checks compilation failed' }
+& "$outputDir\LocalizationTests.exe"
+if ($LASTEXITCODE) { throw 'Localization and CJK policy checks failed' }
 & cl @common tools/PanelRenderChecks.cpp "/Fe$outputDir\PanelRenderChecks.exe" "/Fo$outputDir\PanelRenderChecks.obj" /link user32.lib /INCREMENTAL:NO
 if ($LASTEXITCODE) { throw 'ImGui panel checks compilation failed' }
 & "$outputDir\PanelRenderChecks.exe"

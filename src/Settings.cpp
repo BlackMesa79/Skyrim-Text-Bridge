@@ -9,6 +9,7 @@ Data Get() { std::lock_guard lock(mutex); return current; }
 void Set(Data value) {
     auto limit = [](float v, float lo, float hi, float fallback) { return std::isfinite(v) ? std::clamp(v,lo,hi) : fallback; };
     value.hotkey = std::clamp(value.hotkey,2,255);
+    if (value.language < 0 || value.language > 4) value.language = 0;
     value.x=limit(value.x,0,1,.025f); value.y=limit(value.y,0,1,.065f);
     value.size=limit(value.size,.6f,1.8f,1); value.opacity=limit(value.opacity,0,1,.92f);
     for (auto color : {&value.background,&value.accent,&value.foreground}) for (auto& c : *color) c=limit(c,0,1,.5f);
@@ -23,6 +24,7 @@ void Load(const std::wstring& path) {
     value.enabled=read(L"Input",L"Enabled",1)!=0;
     value.autoEnable=read(L"Input",L"AutoEnable",0)!=0;
     value.hotkey=GetPrivateProfileIntW(L"Input",L"HotkeyScanCode",66,file.c_str());
+    value.language=GetPrivateProfileIntW(L"Interface",L"Language",0,file.c_str());
     value.x=read(L"Panel",L"X",value.x); value.y=read(L"Panel",L"Y",value.y);
     value.size=read(L"Panel",L"Scale",1); value.opacity=read(L"Panel",L"BackgroundOpacity",value.opacity);
     for (auto item : {std::pair{L"Background",&value.background},std::pair{L"Accent",&value.accent},std::pair{L"Text",&value.foreground}})
@@ -35,6 +37,7 @@ bool Save() {
     write(L"Input",L"AutoEnable",value.autoEnable);
     write(L"Input",L"Enabled",value.enabled); // Key is integer for GetPrivateProfileInt.
     ok = WritePrivateProfileStringW(L"Input",L"HotkeyScanCode",std::to_wstring(value.hotkey).c_str(),file.c_str()) && ok;
+    ok = WritePrivateProfileStringW(L"Interface",L"Language",std::to_wstring(value.language).c_str(),file.c_str()) && ok;
     write(L"Panel",L"X",value.x); write(L"Panel",L"Y",value.y); write(L"Panel",L"Scale",value.size); write(L"Panel",L"BackgroundOpacity",value.opacity);
     for (auto item : {std::pair{L"Background",&value.background},std::pair{L"Accent",&value.accent},std::pair{L"Text",&value.foreground}})
         for (int i=0;i<3;++i) write(item.first,i==0?L"R":i==1?L"G":L"B",(*item.second)[i]);

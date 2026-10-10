@@ -39,6 +39,21 @@ int main(int argc, char** argv) {
     Check(SUCCEEDED(open->GetValue(&actual)) && actual.vt == VT_I4 && actual.lVal == 1, "production setter reopens IME");
     VariantClear(&actual);
     Check(TsfNativeMode() == true, "reader follows native reentry");
+    value.lVal=0;Check(SUCCEEDED(open->SetValue(client,&value)), "seed Korean closed compatibility flag");
+    Check(TsfNativeMode(MAKELANGID(LANG_KOREAN,SUBLANG_DEFAULT))==true,
+          "real TSF Korean native conversion wins over closed compatibility flag");
+    Check(TsfNativeMode(MAKELANGID(LANG_JAPANESE,SUBLANG_DEFAULT))==false,
+          "real TSF Japanese closed state remains Latin");
+    value.lVal=1;Check(SUCCEEDED(open->SetValue(client,&value)), "restore isolated compartment open flag");
+    const DWORD kana = IME_CMODE_NATIVE | IME_CMODE_KATAKANA | IME_CMODE_FULLSHAPE | IME_CMODE_ROMAN;
+    SetTsfMode(false, kana);
+    Check(SUCCEEDED(conversion->GetValue(&actual)) && actual.vt == VT_I4 && actual.lVal == kana,
+          "native reentry restores Japanese kana/fullwidth conversion flags");
+    VariantClear(&actual);
+    SetTsfMode(true, kana);
+    Check(SUCCEEDED(conversion->GetValue(&actual)) && actual.vt == VT_I4 && !(actual.lVal & (IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE)),
+          "cached native flags cannot prevent English gameplay exit");
+    VariantClear(&actual);
     open->Release(); conversion->Release(); compartments->Release();
     manager->Deactivate(); manager->Release(); CoUninitialize();
     std::cout << checks << " real isolated TSF mode checks passed (no Sogou or game validation)\n";

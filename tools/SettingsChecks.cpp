@@ -8,10 +8,13 @@ int main() {
     auto path=std::filesystem::absolute("build/preview/settings-test.ini").wstring();
     Settings::Load(path); auto value=Settings::Data{};
     if (value.autoEnable) return 7;
-    value.autoEnable=true; value.enabled=false; value.hotkey=65; value.x=.8f; value.y=.3f; value.opacity=.25f; value.background={.2f,.3f,.4f};
+    value.autoEnable=true; value.enabled=false; value.hotkey=65; value.language=4; value.x=.8f; value.y=.3f; value.opacity=.25f; value.background={.2f,.3f,.4f};
     Settings::Set(value); if (!Settings::Save()) return 1;
     Settings::Set({}); Settings::Load(path); auto loaded=Settings::Get();
-    if (!loaded.autoEnable || loaded.enabled || loaded.hotkey!=65 || std::abs(loaded.opacity-.25f)>.0001f || loaded.background!=value.background) return 2;
+    if (!loaded.autoEnable || loaded.enabled || loaded.hotkey!=65 || loaded.language!=4 || std::abs(loaded.opacity-.25f)>.0001f || loaded.background!=value.background) return 2;
+    WritePrivateProfileStringW(L"Interface",L"Language",nullptr,path.c_str());
+    Settings::Load(path); if (Settings::Get().language != 0) return 9;
+    value.language=999; Settings::Set(value); if (Settings::Get().language != 0) return 10;
     WritePrivateProfileStringW(L"Input",L"AutoEnable",nullptr,path.c_str());
     Settings::Load(path); if (Settings::Get().autoEnable) return 8;
     value.size=std::numeric_limits<float>::quiet_NaN(); value.opacity=2; value.x=-3;
@@ -21,5 +24,5 @@ int main() {
         if ((PanelColor(.2f,.3f,.4f,Settings::Get().opacity) >> 24) != unsigned(opacity*255+.5f)) return 4;
         if ((PanelColor(.9f,.9f,.9f) >> 24) != 255) return 5;
     }
-    std::cout << "Settings persistence, invalid-value clamps, 0/50/100% ImGui background alpha and opaque text colors passed\n";
+    std::cout << "Settings/language persistence, legacy INI migration, invalid-value clamps, 0/50/100% panel alpha passed\n";
 }

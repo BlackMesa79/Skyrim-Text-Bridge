@@ -15,6 +15,7 @@ LRESULT CALLBACK Peer(HWND window, UINT message, WPARAM w, LPARAM l, UINT_PTR, D
 }
 void Check(bool ok, const char* label) { ++checks; if (!ok) { std::cerr << "FAIL: " << label << '\n'; std::exit(1); } }
 int main() {
+    auto settings = TextBridge::Settings::Data{}; settings.language = 2; TextBridge::Settings::Set(settings);
     using namespace TextBridge::DirectIme;
     const DWORD native = IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE | IME_CMODE_SYMBOL | IME_CMODE_ROMAN;
     Check(TextBridge::ImeLanguage::Conversion(native,true) == IME_CMODE_ROMAN, "English clears native/fullwidth/symbol while preserving unrelated conversion flags");
@@ -153,6 +154,66 @@ int main() {
     testForeground = true;
     Toggle(); SkyrimTextBridge_ResetInputV1(); SendMessageW(window, syncMessage, 0, 0);
     Check(!Active(), "menu/load reset");
+    auto candidates = [&](std::initializer_list<std::u16string> values) {
+        const auto count=static_cast<DWORD>(values.size());
+        std::size_t bytes=offsetof(CANDIDATELIST,dwOffset)+count*sizeof(DWORD);
+        for (const auto& value : values) bytes+=(value.size()+1)*2;
+        testCandidates.assign(bytes,std::byte{});
+        auto list=reinterpret_cast<CANDIDATELIST*>(testCandidates.data());
+        list->dwSize=static_cast<DWORD>(bytes);list->dwCount=count;list->dwPageSize=count;
+        std::size_t position=offsetof(CANDIDATELIST,dwOffset)+count*sizeof(DWORD);
+        unsigned i{};
+        for (const auto& value : values) {
+            list->dwOffset[i++]=static_cast<DWORD>(position);
+            std::memcpy(testCandidates.data()+position,value.data(),value.size()*2);
+            position+=(value.size()+1)*2;
+        }
+    };
+    settings.language=3;TextBridge::Settings::Set(settings);
+    testKeyboardLanguage=MAKELANGID(LANG_JAPANESE,SUBLANG_DEFAULT);
+    testInputMethodName=L"Microsoft 日本語 IME";testNativeState=true;Toggle();
+    Check(panelText.starts_with(L"日本語入力") && panelText.find(L"入力方式：Microsoft 日本語 IME")!=std::wstring::npos,
+          "Japanese session and IME name are localized without selecting another profile");
+    testComposition=u"にほんご";candidates({u"日本語",u"ニホンゴ"});
+    SendMessageW(window,WM_IME_COMPOSITION,0,GCS_COMPSTR);
+    Check(Take(5).empty() && BlockNavigation(), "Japanese preedit stays out of game character queue");
+    Check(panelText.find(L"にほんご")!=std::wstring::npos && panelText.find(L"> 1. 日本語")!=std::wstring::npos,
+          "Japanese kana and candidate payloads survive production parser");
+    testResult=u"日本";testComposition=u"ご";
+    SendMessageW(window,WM_IME_COMPOSITION,0,GCS_RESULTSTR|GCS_COMPSTR);
+    auto jp=Take(5);Check(jp==std::vector<std::uint32_t>{0x65E5,0x672C} && composing,
+          "Japanese clause commit keeps remaining composition active");
+    testResult=u"語";testComposition.clear();testCandidates.clear();
+    SendMessageW(window,WM_IME_COMPOSITION,0,GCS_RESULTSTR);
+    Check(Take(5)==std::vector<std::uint32_t>{0x8A9E} && !composing, "Japanese remaining clause committed exactly once");
+    testResult.clear();SendMessageW(window,WM_IME_CHAR,0x8A9E,0);
+    Check(Take(5).empty(), "Japanese legacy IME char does not duplicate result");
+    Toggle();Check(panelText==L"入力モード終了", "Japanese exit notice translated");
+    settings.language=4;TextBridge::Settings::Set(settings);
+    testKeyboardLanguage=MAKELANGID(LANG_KOREAN,SUBLANG_DEFAULT);
+    testInputMethodName=L"Microsoft 입력기";testNativeState=true;Toggle();
+    Check(panelText.starts_with(L"한국어 입력") && panelText.find(L"입력기: Microsoft 입력기")!=std::wstring::npos,
+          "Korean input title and selected IME name translated");
+    for (const auto& syllable : {u"ㅎ",u"하",u"한"}) {
+        testComposition=syllable;SendMessageW(window,WM_IME_COMPOSITION,0,GCS_COMPSTR);
+        Check(Take(5).empty() && panelText.find(TextBridge::Localization::Wide(TextBridge::Localization::Key::NoCandidates))==std::wstring::npos,
+              "Hangul incremental composition never commits prematurely or reports missing candidates");
+    }
+    testResult=u"한";testComposition=u"ㄱ";SendMessageW(window,WM_IME_COMPOSITION,0,GCS_RESULTSTR|GCS_COMPSTR);
+    auto korean=Take(5);Check(korean==std::vector<std::uint32_t>{0xD55C} && composing,
+          "Korean commits completed syllable while next syllable composes");
+    testResult=u"국";testComposition.clear();SendMessageW(window,WM_IME_COMPOSITION,0,GCS_RESULTSTR);
+    Check(Take(5)==std::vector<std::uint32_t>{0xAD6D} && !composing, "Korean second syllable preserves order without duplication");
+    testResult.clear();testComposition=u"한국";candidates({u"韓國",u"韩国"});SendMessageW(window,WM_IME_NOTIFY,IMN_CHANGECANDIDATE,1);
+    Check(panelText.find(L"韓國")!=std::wstring::npos && Take(5).empty(), "Korean Hanja candidates display without preedit commit");
+    Check(!Escape() && cancelComposition, "Korean live composition Esc cancels before exiting");
+    testComposition.clear();testCandidates.clear();SendMessageW(window,syncMessage,0,0);
+    Check(enabled && !composing, "Korean cancellation keeps session available");
+    testNativeState=false;SendMessageW(window,WM_IME_NOTIFY,IMN_SETCONVERSIONMODE,0);
+    Check(english && panelText.starts_with(L"영문 입력"), "Korean Latin mode follows system switch and translated English title");
+    Check(Escape() && panelText==L"입력 모드 종료", "Korean exit restores ordinary gameplay input");
+    settings.language=2;TextBridge::Settings::Set(settings);
+    testKeyboardLanguage=MAKELANGID(LANG_CHINESE,SUBLANG_CHINESE_SIMPLIFIED);testInputMethodName=L"测试输入法";
     std::atomic<bool> requested{false}, finished{false};
     std::thread request([&] { TextBridge::DirectIme::Toggle(); requested = true; while (!finished) std::this_thread::yield(); });
     while (!requested) std::this_thread::yield();

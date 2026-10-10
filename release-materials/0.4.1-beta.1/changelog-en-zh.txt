@@ -1,0 +1,10 @@
+0.4.1-beta.1
+
+Shortened the settings-page help and added English, Simplified Chinese, Japanese and Korean interfaces. Language follows Windows automatically; an optional override is available.
+精简设置页说明，加入英文、简体中文、日语和韩语界面，默认根据 Windows 语言自动识别，可选手动覆盖。
+
+Added initial Japanese/Korean IME handling: kana/fullwidth mode preservation, Korean Hangul state detection, composition and candidate text handling. Actual IMEs still need game testing.
+加入初步日/韩输入处理：保留假名/全角状态，识别韩语 Hangul 模式，并处理组合文字及候选内容；实际输入法仍需游戏测试。
+
+Retains direct English input, optional automatic activation, Modex cleanup and Prisma coexistence. Japanese/Korean display requires suitable Menu Framework font settings.
+保留直接英文输入、可选自动开启、Modex 清理及 Prisma 共存；日/韩显示需要配置 Menu Framework 相应字体。

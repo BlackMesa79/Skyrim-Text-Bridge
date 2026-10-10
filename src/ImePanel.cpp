@@ -5,6 +5,7 @@ namespace RE { class InputEvent; }
 #include "ImePanel.h"
 #include "Settings.h"
 #include "PanelState.h"
+#include "Localization.h"
 #include <algorithm>
 #include <filesystem>
 #include <format>
@@ -15,7 +16,7 @@ namespace TextBridge::ImePanel {
 namespace {
 PanelState state;
 bool installed = false;
-bool warnedFont = false;
+unsigned warnedFonts{};
 using namespace ImGuiMCP;
 struct Backend {
     std::int64_t (*registerHud)(void(__stdcall*)()){};
@@ -66,9 +67,18 @@ void __stdcall Render() {
     const auto draw = backend.drawList();
     const auto font = backend.font();
     if (!viewport || !draw || !font) return;
-    if (!warnedFont && !backend.glyph(font, 0x4E2D)) {
-        warnedFont = true;
-        Warn("Text Bridge panel: framework font lacks Chinese glyphs; configure EnableChinese=true and a Chinese PrimaryFont in SKSEMenuFramework.ini, then restart");
+    for (const auto& check : {std::pair{0x4E2D, 1u}, std::pair{0x3042, 2u}, std::pair{0xAC00, 4u}}) {
+        const auto language = Localization::Current();
+        const unsigned interfaceRange = language == Localization::Language::Chinese ? 1 :
+            language == Localization::Language::Japanese ? 2 : language == Localization::Language::Korean ? 4 : 0;
+        const bool needed = check.second == interfaceRange ||
+            (check.second == 1 && panel.lines.front().find(Localization::Text(Localization::Key::ChineseInput)) != std::string::npos) ||
+            (check.second == 2 && panel.lines.front().find(Localization::Text(Localization::Key::JapaneseInput)) != std::string::npos) ||
+            (check.second == 4 && panel.lines.front().find(Localization::Text(Localization::Key::KoreanInput)) != std::string::npos);
+        if (needed && !(warnedFonts & check.second) && !backend.glyph(font, static_cast<ImWchar>(check.first))) {
+            warnedFonts |= check.second;
+            Warn("Text Bridge panel: missing CJK glyphs; enable the relevant Chinese/Japanese/Korean range and a supporting font in SKSEMenuFramework.ini, then restart");
+        }
     }
     const auto box = FitPanel(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y,
                               settings.size, settings.x, settings.y, panel);
@@ -112,11 +122,11 @@ void __stdcall Render() {
     label(title, 33, 8, panel.transient ? 362 : 280, 40, 18, foreground);
     if (panel.transient) return;
     fill(298, 12, 362, 36, PanelColor(.17f, .18f, .20f, settings.opacity), 4);
-    label(Utf8(Settings::KeyName(settings.hotkey)) + " 关闭", 282, 12, 362, 36, 13, muted, true);
+    label(Utf8(Settings::KeyName(settings.hotkey)) + " " + Localization::Text(Localization::Key::Close), 282, 12, 362, 36, 13, muted, true);
     fill(18, 44, 362, 45, PanelColor(.20f, .22f, .23f, settings.opacity));
     if (panel.lines.size() > 1) {
-        const bool idle = panel.lines[1] == "请在当前输入框打字";
-        label(idle ? "就绪 · 在当前输入框开始输入" : panel.lines[1], 20, 48, 360, 82, idle ? 17.f : 24.f, idle ? muted : accent);
+        const bool idle = panel.lines[1] == Localization::Text(Localization::Key::Idle);
+        label(idle ? Localization::Text(Localization::Key::Ready) : panel.lines[1], 20, 48, 360, 82, idle ? 17.f : 24.f, idle ? muted : accent);
     }
     for (std::size_t i = 2; i < panel.lines.size(); ++i) {
         auto line = panel.lines[i];

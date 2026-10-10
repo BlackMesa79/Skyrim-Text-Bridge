@@ -3,6 +3,7 @@
 #include <imm.h>
 #include <msctf.h>
 #include <string>
+#include "Localization.h"
 namespace TextBridge::InputMethodName {
 inline std::wstring Clean(std::wstring value) {
     for (auto& c : value) if (c < L' ' || c == 0x7f) c = L' ';
@@ -14,8 +15,9 @@ inline std::wstring Clean(std::wstring value) {
 }
 inline std::wstring Label(std::wstring name, bool languageOnly = false) {
     name = Clean(std::move(name));
-    if (name.empty()) return L"当前输入法：未知";
-    return (languageOnly ? L"键盘语言：" : L"当前输入法：") + name;
+    using namespace Localization;
+    if (name.empty()) return std::wstring(Wide(Key::ImeName)) + Wide(Key::Unknown);
+    return Wide(languageOnly ? Key::KeyboardLanguage : Key::ImeName) + name;
 }
 // Call on the game window's thread. Query only; never activate a TSF profile.
 inline std::wstring Read() {
