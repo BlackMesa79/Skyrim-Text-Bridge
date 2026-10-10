@@ -1,0 +1,3 @@
+﻿IME input for SkyUI, Modex and Meridian, with in-game candidates and optional auto activation. Compatible with Prisma UI.
+
+为 SkyUI、Modex 和 Meridian 提供输入法、游戏内候选面板及可选自动开启，兼容 Prisma UI。

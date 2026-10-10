@@ -13,7 +13,9 @@ struct Data {
 };
 Data Get();
 void Set(Data value);
-void Load(const std::wstring& path);
+// Read personal settings, or migrate legacy defaults when no personal file exists.
+// Loading never creates/overwrites either file; Save always targets path.
+void Load(const std::wstring& path, const std::wstring& legacyPath = {});
 bool Save();
 std::wstring KeyName(int scan);
 }

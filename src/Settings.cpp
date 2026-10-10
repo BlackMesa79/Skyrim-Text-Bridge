@@ -3,6 +3,7 @@
 #include <mutex>
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 namespace TextBridge::Settings {
 namespace { Data current; std::mutex mutex; std::wstring file; }
 Data Get() { std::lock_guard lock(mutex); return current; }
@@ -15,16 +16,20 @@ void Set(Data value) {
     for (auto color : {&value.background,&value.accent,&value.foreground}) for (auto& c : *color) c=limit(c,0,1,.5f);
     std::lock_guard lock(mutex); current=value;
 }
-void Load(const std::wstring& path) {
+void Load(const std::wstring& path, const std::wstring& legacyPath) {
     file=path; Data value;
+    std::error_code error;
+    const bool personalExists=std::filesystem::exists(path,error);
+    // An unreadable personal file must not fall back to legacy values.
+    const auto& source=personalExists || error || legacyPath.empty() ? path : legacyPath;
     auto read = [&](const wchar_t* section,const wchar_t* key,float fallback) {
-        wchar_t buffer[64]{}; GetPrivateProfileStringW(section,key,L"",buffer,64,file.c_str());
+        wchar_t buffer[64]{}; GetPrivateProfileStringW(section,key,L"",buffer,64,source.c_str());
         try { return std::stof(buffer); } catch (...) { return fallback; }
     };
     value.enabled=read(L"Input",L"Enabled",1)!=0;
     value.autoEnable=read(L"Input",L"AutoEnable",0)!=0;
-    value.hotkey=GetPrivateProfileIntW(L"Input",L"HotkeyScanCode",66,file.c_str());
-    value.language=GetPrivateProfileIntW(L"Interface",L"Language",0,file.c_str());
+    value.hotkey=GetPrivateProfileIntW(L"Input",L"HotkeyScanCode",66,source.c_str());
+    value.language=GetPrivateProfileIntW(L"Interface",L"Language",0,source.c_str());
     value.x=read(L"Panel",L"X",value.x); value.y=read(L"Panel",L"Y",value.y);
     value.size=read(L"Panel",L"Scale",1); value.opacity=read(L"Panel",L"BackgroundOpacity",value.opacity);
     for (auto item : {std::pair{L"Background",&value.background},std::pair{L"Accent",&value.accent},std::pair{L"Text",&value.foreground}})
@@ -32,6 +37,11 @@ void Load(const std::wstring& path) {
     Set(value);
 }
 bool Save() {
+    if (file.empty()) return false;
+    std::error_code error;
+    const auto directory=std::filesystem::path(file).parent_path();
+    if (!directory.empty()) std::filesystem::create_directories(directory,error);
+    if (error) return false;
     const auto value=Get(); bool ok=true;
     auto write = [&](const wchar_t* section,const wchar_t* key,float v) { ok = WritePrivateProfileStringW(section,key,std::to_wstring(v).c_str(),file.c_str()) && ok; };
     write(L"Input",L"AutoEnable",value.autoEnable);

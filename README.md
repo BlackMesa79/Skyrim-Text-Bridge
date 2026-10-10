@@ -1,8 +1,8 @@
 # Skyrim Text Bridge
 
-**Current development build: 0.4.1-beta.1.** Shorter settings help, English/Simplified Chinese/Japanese/Korean UI following the Windows display language by default, and initial Japanese/Korean IME handling. The selected IME does not change the UI language. A manual language override is optional. Japanese/Korean composition fixtures and isolated TSF checks pass; actual IMEs still need game testing. See [test guide](release-materials/0.4.1-beta.1/TESTING.md) and [bilingual changelog](release-materials/0.4.1-beta.1/changelog-en-zh.txt). Stable 0.4.0 remains available.
+**Release 0.4.1.** Shorter settings help, English/Simplified Chinese/Japanese/Korean UI following Windows display language, and initial Japanese/Korean IME handling. Installation ZIPs contain only DLL and readme.txt, never INI. Initialization reads personal settings, otherwise legacy settings, otherwise compiled defaults; only explicit Save writes the personal INI. Removed the extra Settings sidebar level. See [bilingual description](release-materials/0.4.1/description-en-zh.md), [changelog](release-materials/0.4.1/changelog-en-zh.txt) and [validation](VALIDATION-0.4.1.md). Japanese/Korean actual IMEs still need broader game testing; stable 0.4.0 is retained.
 
-**当前开发版：0.4.1-beta.1。** 精简设置说明，默认根据 Windows 显示语言自动使用英、简中、日、韩界面；当前输入法不会改变界面语言，可选手动覆盖。补充日语/韩语输入处理，模拟组合文字及隔离 TSF 检查通过，实际输入法仍待游戏测试。日/韩显示需要在 Menu Framework 启用对应语言范围，并设置包含相应字形的主字体；字体不随包提供。
+**正式版 0.4.1。** 精简设置说明，移除多余 Settings 目录，默认按 Windows 显示语言自动使用英、简中、日、韩界面，输入法切换不改变界面语言，可选手动覆盖。安装包仅含 DLL 和 readme.txt，不带 INI；启动优先读取个人配置，无个人配置时完整读取旧配置，两者都没有时使用内置默认值，点击保存才写入个人 INI。补充初步日/韩输入处理，模拟组合文字及隔离 TSF 检查通过，实际输入法仍需更多游戏测试。日/韩显示需要在 Menu Framework 启用对应语言范围，并设置包含相应字形的主字体；字体不随包提供。
 
 **Stable release — 0.4.0 / 稳定正式版。** Promotes the user-validated beta.8 input behavior: in-game ImGui candidates, framework-based automatic focus detection, console opt-out, direct English typing and Modex Esc cleanup. Emoji display is not supported. **SKSE Menu Framework with a configured Chinese font and Media Keys Fix SKSE are required.** See [bilingual description](release-materials/0.4.0/description-en-zh.md), [release validation](VALIDATION-0.4.0.md) and [framework design](FRAMEWORK-INPUT.md). Older packages are retained; avoid beta.6 due to its startup deadlock.
 
@@ -12,7 +12,7 @@
 
 0.3.10 adds optional automatic activation and a clean Esc exit that returns game input to English. Media Keys Fix SKSE is required for the normal setup. An optional native input-state/reset API is retained for FavoriteWheel; that separate integration still requires its own validation.
 
-A Skyrim SKSE plugin for Chinese IME input, English typing, and keyboard hotkey filtering. Includes an adjustable candidate panel and SKSE Menu Framework HUD rendering and settings.
+A Skyrim SKSE plugin for IME input, English typing, and keyboard hotkey filtering. Includes an adjustable in-game candidate panel, localized settings and initial Japanese/Korean IME handling.
 
 **支持 Meridian UI（如 Tailor）、Modex、SkyUI 等界面的输入；兼容 Prisma UI。** 前者通过 F8 调用本模组输入。Prisma UI 由框架自身处理输入，本模组不为它提供输入支持，也不接管它的输入法；兼容共存，不影响其正常输入。
 
@@ -21,9 +21,9 @@ A Skyrim SKSE plugin for Chinese IME input, English typing, and keyboard hotkey 
 ## 使用
 
 1. 安装与游戏匹配的 SKSE64、Address Library 和 Media Keys Fix SKSE（或等效非独占键盘补丁）；DLL 接受 Skyrim **1.5.97 / 1.6.1170 / 1.7.99 / 1.7.104**，实测状态见上方说明。
-2. 将发行 ZIP 安装到 MO2，禁用 SimpleIME。更新前退出游戏；个人 `SkyrimTextBridge.user.ini` 会保留。
+2. 将发行 ZIP 安装到 MO2，禁用 SimpleIME。更新前退出游戏；发布包不附带 INI，更新时保留 `SkyrimTextBridge.user.ini`。删除/重装模组前自行备份个人文件；MO2 新生成文件可能位于 Overwrite 或指定输出模组。
 3. 点击文本框，按 **F8** 开启输入，或启用可选自动开启。进入时跟随当前输入法/键盘的中英文状态；英文布局或输入法英文状态下直接打字。可用输入法自身切换键或 **Ctrl + 空格**切换中英文，F8 关闭。Ctrl+空格切换会取消尚未选定的拼音。
-4. 安装匹配游戏的 SKSE Menu Framework，并配置所需语言字体（EnableChinese/EnableJapanese/EnableKorean 与有效 PrimaryFont）；在默认 F1 菜单的 **Skyrim Text Bridge → Settings / 输入与面板**调整语言、开关、快捷键、自动开启、位置、颜色及背景透明度。界面语言默认跟随 Windows 显示语言，其他语言回退英文；没有新语言设置的旧个人 INI 也默认自动识别。语言改动下一帧更新页面，侧栏条目在重启游戏后更新。
+4. 安装匹配游戏的 SKSE Menu Framework，并配置所需语言字体（EnableChinese/EnableJapanese/EnableKorean 与有效 PrimaryFont）；在默认 F1 菜单的 **Skyrim Text Bridge → 输入与面板**调整语言、开关、快捷键、自动开启、位置、颜色及背景透明度。界面语言默认跟随 Windows 显示语言，其他语言回退英文；没有新语言设置的旧个人 INI 也默认自动识别。语言改动下一帧更新页面，侧栏条目在重启游戏后更新。
 
 自动开启默认关闭。在设置页勾选“文本框聚焦时自动开启”并保存，或在 `SkyrimTextBridge.user.ini` 的 `[Input]` 下设置 `AutoEnable=1`。按 UI 框架识别：Scaleform 不再限定菜单名称，而是检查已打开的最上层输入菜单、实际可编辑焦点与可见性，覆盖符合条件的 SkyUI、RaceMenu 及其他 Scaleform 界面；Meridian/Tailor 沿用框架级文本框检测。控制台明确排除自动开启，打开期间也不自动接管底下的输入框；需要中文时可按 F8 手动开启。Modex 等独立 ImGui 界面保留手动 F8，Prisma 始终避让。按自定义快捷键手动关闭后，当前焦点暂不自动重开；离开再聚焦后恢复。自动开启的会话失焦后结束，换框时清空旧会话的未提交内容。新界面的文字提交仍需实测，识别焦点不等于所有界面已经完整兼容。
 
@@ -75,7 +75,7 @@ F8 输入模式中，普通键的按下、持续和松开事件不会送入下�
 
 发行包不包含 PDB，符号单独打包。SKSE 日志中的 `SkyrimTextBridge.log` 用于排查；不记录输入文字。
 
-正式安装 ZIP 仅含 DLL、默认 INI 与一个 `readme.txt`，使用说明和完整许可文本合并在该文件中。最新版逐段英中对照详情页、简介及 changelog 位于 `release-materials/0.4.0/`；原 SVG 封面保留在 `release-materials/0.3.7/`，不占用安装包。
+正式安装 ZIP 仅含 DLL 与一个 `readme.txt`，不附带任何 INI，使用说明和完整许可文本合并在该文件中。逐段英中对照详情页、简短简介、副标题、changelog 及更新的 SVG/PNG 封面位于 `release-materials/0.4.1/`，宣传资料不占用安装包。GitHub 仅用于源码托管，不创建 GitHub Release。
 
 ## License
 

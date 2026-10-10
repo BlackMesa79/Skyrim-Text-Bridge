@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440">
+<title>Skyrim Text Bridge</title>
+<desc>Original vector cover in charcoal, ivory and gold. A keyboard feeds Chinese, Japanese and Korean text into a field. Promotional illustration, not a game screenshot.</desc>
+<rect width="2560" height="1440" fill="#11191b"/>
+<g font-family="Segoe UI, Arial, sans-serif">
+  <text x="168" y="390" fill="#b4bdbd" font-size="37" letter-spacing="13">SKYRIM SPECIAL EDITION</text>
+  <text x="154" y="650" fill="#f4f1e8" font-size="244" font-weight="700" letter-spacing="-6">TEXT</text>
+  <text x="154" y="899" fill="#f4f1e8" font-size="244" font-weight="700" letter-spacing="-6">BRIDGE</text>
+  <text x="170" y="1020" fill="#aeb9b9" font-size="42">Chinese · Japanese · Korean IME</text>
+  <text x="170" y="1100" fill="#aeb9b9" font-size="40" font-family="Microsoft YaHei, sans-serif" letter-spacing="5">中文 · 日语 · 韩语输入法支持</text>
+</g>
+<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="1638" y="310" width="734" height="425" rx="30" stroke="#f4f1e8" stroke-width="7"/>
+  <path d="M1685 392 H2324" stroke="#475252" stroke-width="3"/>
+  <path d="M2295 638 V695 M2280 638 H2310 M2280 695 H2310" stroke="#d5af6c" stroke-width="7"/>
+  <path d="M1920 812 V799 Q1920 777 1960 777 H2074 Q2114 777 2114 754" stroke="#d5af6c" stroke-width="7"/>
+  <path d="M2094 774 L2114 754 L2134 774" stroke="#d5af6c" stroke-width="7"/>
+  <rect x="1598" y="828" width="780" height="242" rx="28" stroke="#f4f1e8" stroke-width="7"/>
+  <g stroke="#f4f1e8" stroke-width="4">
+    <rect x="1635" y="866" width="74" height="60" rx="8"/>
+    <rect x="1730" y="866" width="74" height="60" rx="8"/>
+    <rect x="1825" y="866" width="74" height="60" rx="8"/>
+    <rect x="1920" y="866" width="74" height="60" rx="8"/>
+    <rect x="2015" y="866" width="74" height="60" rx="8"/>
+    <rect x="2110" y="866" width="74" height="60" rx="8"/>
+    <rect x="2205" y="866" width="133" height="60" rx="8"/>
+    <rect x="1635" y="957" width="112" height="68" rx="9"/>
+    <rect x="1770" y="957" width="360" height="68" rx="9"/>
+    <rect x="2260" y="957" width="78" height="68" rx="9"/>
+  </g>
+  <rect x="2155" y="957" width="82" height="68" rx="9" stroke="#d5af6c" stroke-width="4"/>
+</g>
+<g font-family="Segoe UI, Arial, sans-serif">
+  <text x="1685" y="368" fill="#aeb9b9" font-size="25" letter-spacing="2">CHINESE / JAPANESE / KOREAN</text>
+  <text x="1700" y="493" fill="#f4f1e8" font-size="74" font-family="Microsoft YaHei, sans-serif">你好，天际</text>
+  <text x="1700" y="590" fill="#f4f1e8" font-size="70" font-family="Yu Gothic, Meiryo, sans-serif">こんにちは</text>
+  <text x="1700" y="688" fill="#f4f1e8" font-size="70" font-family="Malgun Gothic, sans-serif">안녕하세요</text>
+  <text x="2196" y="1002" fill="#d5af6c" font-size="31" text-anchor="middle">F8</text>
+</g>
+<text x="2372" y="220" text-anchor="end" fill="#d5af6c" font-size="32" font-family="Segoe UI, sans-serif" letter-spacing="5">0.4.1</text>
+<text x="170" y="1265" fill="#728180" font-size="28" font-family="Segoe UI, sans-serif" letter-spacing="3">IN-GAME CANDIDATES  /  OPTIONAL AUTO ACTIVATION</text>
+</svg>

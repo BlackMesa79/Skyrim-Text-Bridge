@@ -1,4 +1,4 @@
-param([string]$Version = '0.4.1-beta.1', [switch]$Release)
+param([string]$Version = '0.4.1', [switch]$Release)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $dist = Join-Path $projectRoot 'dist'
@@ -8,7 +8,6 @@ $stage = Join-Path $projectRoot ('build\package-' + $Version + '-' + [Guid]::New
 New-Item -ItemType Directory -Path (Join-Path $stage 'SKSE\Plugins') -Force | Out-Null
 New-Item -ItemType Directory -Path $dist -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $projectRoot 'build\native\SkyrimTextBridge.dll') -Destination (Join-Path $stage 'SKSE\Plugins')
-Copy-Item -LiteralPath (Join-Path $projectRoot 'package\SKSE\Plugins\SkyrimTextBridge.ini') -Destination (Join-Path $stage 'SKSE\Plugins')
 $readme = [Text.StringBuilder]::new()
 [void]$readme.Append([IO.File]::ReadAllText((Join-Path $projectRoot "release-materials\$Version\readme-intro.txt")))
 $notices = [ordered]@{
@@ -34,8 +33,8 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [IO.Compression.ZipFile]::OpenRead($zip)
 try {
     $actual = @($archive.Entries | Where-Object { $_.Name } | ForEach-Object { $_.FullName.Replace('\','/') } | Sort-Object)
-    $expected = @('readme.txt','SKSE/Plugins/SkyrimTextBridge.dll','SKSE/Plugins/SkyrimTextBridge.ini') | Sort-Object
-    if (Compare-Object $actual $expected) { throw 'Release ZIP must contain exactly DLL, default INI and readme.txt' }
+    $expected = @('readme.txt','SKSE/Plugins/SkyrimTextBridge.dll') | Sort-Object
+    if (Compare-Object $actual $expected) { throw 'Installation ZIP must contain exactly DLL and readme.txt; never ship INI files' }
 } finally { $archive.Dispose() }
 if ($Release) {
     Compress-Archive -LiteralPath (Join-Path $projectRoot 'build\native\SkyrimTextBridge.pdb') -DestinationPath (Join-Path $dist "SkyrimTextBridge-$Version-symbols.zip") -Force

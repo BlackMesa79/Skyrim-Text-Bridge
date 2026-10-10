@@ -1,0 +1,4 @@
+﻿Skyrim Text Bridge - Chinese Japanese and Korean IME Support
+
+Chinese Japanese and Korean IME Support
+中文、日语与韩语输入法支持

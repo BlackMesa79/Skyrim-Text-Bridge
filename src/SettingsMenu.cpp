@@ -68,7 +68,8 @@ void Install() {
     // The public API has no rename/remove operation. Translate on registration;
     // a language change updates page contents immediately, the sidebar on restart.
     const auto label = Localization::Text(Key::Settings);
-    SKSEMenuFramework::AddSectionItem(Localization::Current() == Localization::Language::English ? label : "Settings / " + label,Render);
+    // '/' is a hierarchy separator in Menu Framework, not a visual delimiter.
+    SKSEMenuFramework::AddSectionItem(label,Render);
     using RegisterEvent=std::int64_t (*)(SKSEMenuFramework::Model::EventCallback);
     static auto listener = reinterpret_cast<RegisterEvent>(GetProcAddress(module,"RegisterEvent"))(Event);
     installed=true; SKSE::log::info("Menu Framework settings registered");

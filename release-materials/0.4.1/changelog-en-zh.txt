@@ -1,0 +1,10 @@
+﻿0.4.1
+
+Added English, Simplified Chinese, Japanese and Korean UI, automatically following Windows display language; shortened settings help and removed the extra Settings submenu.
+加入自动跟随 Windows 显示语言的英、简中、日、韩界面，精简设置说明，移除多余 Settings 子目录。
+
+Added initial Japanese/Korean IME handling, including kana/fullwidth preservation and Hangul mode detection. Actual IMEs still need broader game testing.
+加入初步日/韩输入处理，包括假名/全角保留与 Hangul 状态识别；实际输入法仍需更多游戏测试。
+
+Installation ZIP now contains only DLL and readme.txt. Built-in defaults work without INI; startup preserves personal settings and fully reads legacy settings when needed.
+安装 ZIP 仅含 DLL 和 readme.txt；无 INI 时使用内置默认值，启动保留个人配置，并在需要时完整读取旧配置。

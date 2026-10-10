@@ -1,5 +1,5 @@
 param(
-    [string]$Version = '0.4.1-beta.1',
+    [string]$Version = '0.4.1',
     [switch]$Release,
     [string]$Target = 'H:\Games\Dev Skyrim\mods\36 - SkyrimTextBridge'
 )
@@ -12,6 +12,7 @@ $source = Join-Path $project ("build\deploy-$Version$suffix-" + [Guid]::NewGuid(
 Expand-Archive -LiteralPath (Join-Path $project "dist\SkyrimTextBridge-$Version$suffix.zip") -DestinationPath $source -Force
 $backup = Join-Path $project ('build\deployment-backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
 $files = Get-ChildItem -LiteralPath $source -Recurse -File
+if ($files | Where-Object Extension -EQ '.ini') { throw 'Deployment must not overwrite player INI settings.' }
 # Back up every replaced file before changing any destination file. Never delete extras or MO2 metadata.
 foreach ($file in $files) {
     $relative = $file.FullName.Substring($source.Length + 1)
